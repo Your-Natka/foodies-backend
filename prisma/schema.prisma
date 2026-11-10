@@ -1,0 +1,107 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String  @id @db.VarChar(24)
+  name      String  @db.VarChar(255)
+  email     String  @unique @db.VarChar(255)
+  password  String  @db.Text
+  avatar    String? @db.Text
+
+  refreshTokenHash String?   @map("refresh_token_hash") @db.Text
+  sessionExpiresAt DateTime? @map("session_expires_at")
+
+  favoriteRecipeIds String[] @default([]) @map("favorite_recipe_ids")
+  followers         String[] @default([])
+  following         String[] @default([])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  recipes      Recipe[]
+  testimonials Testimonial[]
+
+  @@map("users")
+}
+
+model Category {
+  id   String @id @db.VarChar(24)
+  name String @db.VarChar(100)
+
+  @@map("categories")
+}
+
+model Area {
+  id   String @id @db.VarChar(24)
+  name String @db.VarChar(255)
+
+  @@map("areas")
+}
+
+model Ingredient {
+  id          String  @id @db.VarChar(24)
+  name        String? @db.VarChar(255)
+  description String? @db.Text
+  img         String? @db.Text
+
+  recipes RecipeIngredient[]
+
+  @@map("ingredients")
+}
+
+model Recipe {
+  id           String @id @db.VarChar(24)
+  title        String @db.VarChar(255)
+  category     String @db.VarChar(100)
+  area         String @db.VarChar(100)
+  instructions String @db.Text
+  description  String @db.Text
+  thumb        String @db.Text
+  preview      String? @db.Text
+  time         Int
+
+  ownerId String @map("owner_id") @db.VarChar(24)
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  ingredients RecipeIngredient[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@index([category])
+  @@index([area])
+  @@index([createdAt])
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  recipeId     String @map("recipe_id") @db.VarChar(24)
+  ingredientId String @map("ingredient_id") @db.VarChar(24)
+  measure      String @db.VarChar(100)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([recipeId, ingredientId])
+  @@index([ingredientId])
+  @@map("recipe_ingredients")
+}
+
+model Testimonial {
+  id          String @id @db.VarChar(24)
+  ownerId     String @map("owner_id") @db.VarChar(24)
+  testimonial String @db.Text
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@map("testimonials")
+}
