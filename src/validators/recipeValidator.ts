@@ -12,6 +12,13 @@ interface FieldError {
   message: string;
 }
 
+export const parseRecipeId = (value: unknown) => {
+  if (typeof value !== "string" || !/^[a-f\d]{24}$/i.test(value)) {
+    return null;
+  }
+  return value.toLowerCase();
+};
+
 export const parseRecipeQuery = (input: Record<string, unknown>) => {
   const errors: FieldError[] = [];
   const allowedFields = ["page", "limit", "category", "area", "ingredientId", "ownerId"];

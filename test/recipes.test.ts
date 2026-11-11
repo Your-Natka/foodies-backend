@@ -30,6 +30,7 @@ const salmon = "20000000000000000000000a";
 const salt = "20000000000000000000000b";
 const recipeId = (number: number) => number.toString(16).padStart(24, "0");
 const longDescription = "Опис початкового рецепта. ".repeat(20);
+const longInstructions = "Cook the ingredients. ".repeat(60);
 
 before(async () => {
   await admin.connect();
@@ -49,7 +50,7 @@ before(async () => {
   ] });
   await prisma.ingredient.createMany({ data: [
     { id: salmon, name: "Salmon", img: "https://example.com/salmon.png" },
-    { id: salt, name: "Salt", img: null },
+    { id: salt, name: null, img: null },
   ] });
 
   for (let number = 1; number <= 13; number++) {
@@ -57,19 +58,23 @@ before(async () => {
       id: recipeId(number),
       title: `Recipe ${number}`,
       description: number === 13 ? longDescription : `Description ${number}`,
-      instructions: "Cook the ingredients. ".repeat(60),
+      instructions: longInstructions,
       thumb: "https://example.com/recipe.jpg",
       category: number <= 6 ? "Seafood" : "Dessert",
       area: number % 2 === 0 ? "Japanese" : "Greek",
       time: 30,
       ownerId: number <= 8 ? firstOwner : secondOwner,
       createdAt: new Date(number === 13 ? "2026-01-03T00:00:00Z" : "2026-01-02T00:00:00Z"),
-      ingredients: { create: {
+      ingredients: { create: number === 12 ? [] : [{
         ingredientId: number <= 4 ? salmon : salt,
         measure: "100 g",
-      } },
+      }] },
     } });
   }
+
+  await prisma.recipeIngredient.create({ data: {
+    recipeId: recipeId(1), ingredientId: salt, measure: "1 pinch",
+  } });
 
   const app = (await import("../src/app.ts")).default;
   server = app.listen(0, "127.0.0.1");
@@ -217,12 +222,81 @@ test("помилка JSON повертає 400", async () => {
   assert.deepEqual(await response.json(), { success: false, message: "Invalid JSON body" });
 });
 
+test("деталі рецепта доступні гостю, містять інгредієнти та публічні дані автора", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/${recipeId(1)}`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    data: {
+      id: recipeId(1),
+      title: "Recipe 1",
+      description: "Description 1",
+      instructions: longInstructions,
+      thumb: "https://example.com/recipe.jpg",
+      category: "Seafood",
+      area: "Greek",
+      time: 30,
+      createdAt: "2026-01-02T00:00:00.000Z",
+      owner: { id: firstOwner, name: "Olena", avatar: null },
+      ingredients: [
+        { id: salmon, name: "Salmon", img: "https://example.com/salmon.png", measure: "100 g" },
+        { id: salt, name: null, img: null, measure: "1 pinch" },
+      ],
+    },
+  });
+});
+
+test("деталі зберігають довгі описи та інструкції початкових рецептів", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/${recipeId(13)}`);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { data: { description: string; instructions: string } };
+  assert.equal(body.data.description, longDescription);
+  assert.equal(body.data.instructions, longInstructions);
+});
+
+test("рецепт без інгредієнтів повертає порожній масив", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/${recipeId(12)}`);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { data: { ingredients: unknown[] } };
+  assert.deepEqual(body.data.ingredients, []);
+});
+
+test("великі літери в ID рецепта приймаються", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/${recipeId(10).toUpperCase()}`);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { data: { id: string } };
+  assert.equal(body.data.id, recipeId(10));
+});
+
+test("відсутній рецепт повертає 404", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/ffffffffffffffffffffffff`);
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { success: false, message: "Recipe not found" });
+});
+
+test("неправильний формат ID рецепта повертає 400", async (context) => {
+  const ids = [
+    "bad-id", "a".repeat(23), "a".repeat(25), "g".repeat(24),
+    `%20${recipeId(1)}`, `${recipeId(1)}%20`,
+  ];
+  for (const id of ids) {
+    await context.test(id, async () => {
+      const response = await fetch(`${baseUrl}/api/recipes/${id}`);
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), { success: false, message: "Invalid recipe ID" });
+    });
+  }
+});
+
 test("помилка читання не розкриває подробиці БД", async () => {
   await prisma.$executeRaw`ALTER TABLE "recipes" RENAME TO "recipes_unavailable"`;
   try {
-    const response = await fetch(`${baseUrl}/api/recipes`);
-    assert.equal(response.status, 500);
-    assert.deepEqual(await response.json(), { success: false, message: "Internal Server Error" });
+    for (const path of ["/api/recipes", `/api/recipes/${recipeId(1)}`]) {
+      const response = await fetch(`${baseUrl}${path}`);
+      assert.equal(response.status, 500);
+      assert.deepEqual(await response.json(), { success: false, message: "Internal Server Error" });
+    }
+    const invalid = await fetch(`${baseUrl}/api/recipes/bad-id`);
+    assert.equal(invalid.status, 400);
   } finally {
     await prisma.$executeRaw`ALTER TABLE "recipes_unavailable" RENAME TO "recipes"`;
   }
