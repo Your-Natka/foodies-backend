@@ -40,6 +40,14 @@ export const getRecipes = async (query: RecipeQuery) => {
   };
 };
 
+export const getPopularRecipes = async () => {
+  return prisma.recipe.findMany({
+    take: 4,
+    orderBy: [{ favorites: { _count: "desc" } }, { createdAt: "desc" }, { id: "desc" }],
+    select: recipeCardSelect,
+  });
+};
+
 export const getRecipeById = async (id: string) => {
   const recipe = await prisma.recipe.findUnique({
     where: { id },

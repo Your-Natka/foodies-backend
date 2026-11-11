@@ -29,6 +29,10 @@ const secondOwner = "10000000000000000000000b";
 const salmon = "20000000000000000000000a";
 const salt = "20000000000000000000000b";
 const recipeId = (number: number) => number.toString(16).padStart(24, "0");
+const favorites = [
+  ...[1, 2, 3, 13].map((number) => ({ userId: firstOwner, recipeId: recipeId(number) })),
+  ...[1, 13].map((number) => ({ userId: secondOwner, recipeId: recipeId(number) })),
+];
 const longDescription = "Опис початкового рецепта. ".repeat(20);
 const longInstructions = "Cook the ingredients. ".repeat(60);
 
@@ -75,6 +79,7 @@ before(async () => {
   await prisma.recipeIngredient.create({ data: {
     recipeId: recipeId(1), ingredientId: salt, measure: "1 pinch",
   } });
+  await prisma.favorite.createMany({ data: favorites });
 
   const app = (await import("../src/app.ts")).default;
   server = app.listen(0, "127.0.0.1");
@@ -107,6 +112,14 @@ const catalog = async (query = "") => {
   const response = await fetch(`${baseUrl}/api/recipes${query}`);
   assert.equal(response.status, 200);
   return await response.json() as CatalogResponse;
+};
+
+const popularRecipes = async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/popular`);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { data: CatalogResponse["data"] };
+  assert.deepEqual(Object.keys(body), ["data"]);
+  return body.data;
 };
 
 test("каталог доступний гостю та містить тільки публічні дані автора", async () => {
@@ -287,10 +300,54 @@ test("неправильний формат ID рецепта повертає 4
   }
 });
 
+test("популярні рецепти доступні гостю та рахують різних користувачів", async () => {
+  const recipes = await popularRecipes();
+  assert.deepEqual(recipes.map(({ id }) => id), [13, 1, 3, 2].map(recipeId));
+  for (const recipe of recipes) {
+    assert.deepEqual(Object.keys(recipe).sort(), [
+      "area", "category", "createdAt", "description", "id", "owner", "thumb", "time", "title",
+    ]);
+    assert.deepEqual(Object.keys(recipe.owner).sort(), ["avatar", "id", "name"]);
+  }
+  assert.equal(recipes[0].description, longDescription);
+});
+
+test("зміна обраного змінює порядок популярних рецептів", async () => {
+  try {
+    await prisma.favorite.delete({ where: {
+      userId_recipeId: { userId: secondOwner, recipeId: recipeId(13) },
+    } });
+    const recipes = await popularRecipes();
+    assert.deepEqual(recipes.map(({ id }) => id), [1, 13, 3, 2].map(recipeId));
+  } finally {
+    await prisma.favorite.create({ data: { userId: secondOwner, recipeId: recipeId(13) } });
+  }
+});
+
+test("без збережень популярні рецепти впорядковані за датою та ID", async () => {
+  try {
+    await prisma.favorite.deleteMany();
+    const recipes = await popularRecipes();
+    assert.deepEqual(recipes.map(({ id }) => id), [13, 12, 11, 10].map(recipeId));
+  } finally {
+    await prisma.favorite.createMany({ data: favorites });
+  }
+});
+
+test("популярні рецепти не приймають пагінацію та фільтри", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/popular?page=2&limit=1&category=Seafood`);
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    success: false,
+    message: "Invalid query parameters",
+    errors: ["page", "limit", "category"].map((field) => ({ field, message: "Unknown query parameter" })),
+  });
+});
+
 test("помилка читання не розкриває подробиці БД", async () => {
   await prisma.$executeRaw`ALTER TABLE "recipes" RENAME TO "recipes_unavailable"`;
   try {
-    for (const path of ["/api/recipes", `/api/recipes/${recipeId(1)}`]) {
+    for (const path of ["/api/recipes", "/api/recipes/popular", `/api/recipes/${recipeId(1)}`]) {
       const response = await fetch(`${baseUrl}${path}`);
       assert.equal(response.status, 500);
       assert.deepEqual(await response.json(), { success: false, message: "Internal Server Error" });
@@ -300,4 +357,13 @@ test("помилка читання не розкриває подробиці �
   } finally {
     await prisma.$executeRaw`ALTER TABLE "recipes_unavailable" RENAME TO "recipes"`;
   }
+});
+
+test("видалені рецепти не потрапляють у популярні, порожній каталог повертає порожній список", async () => {
+  await prisma.recipe.deleteMany({ where: { id: { notIn: [recipeId(1), recipeId(2)] } } });
+  const recipes = await popularRecipes();
+  assert.deepEqual(recipes.map(({ id }) => id), [1, 2].map(recipeId));
+
+  await prisma.recipe.deleteMany();
+  assert.deepEqual(await popularRecipes(), []);
 });

@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getRecipeById, getRecipes } from "../sevices/recipeService.js";
+import { getPopularRecipes, getRecipeById, getRecipes } from "../sevices/recipeService.js";
 import { parseRecipeId, parseRecipeQuery } from "../validators/recipeValidator.js";
 
 export const listRecipes = async (req: Request, res: Response) => {
@@ -32,4 +32,19 @@ export const getRecipe = async (req: Request, res: Response) => {
   }
 
   res.status(200).json({ data: recipe });
+};
+
+export const listPopularRecipes = async (req: Request, res: Response) => {
+  const fields = Object.keys(req.query);
+  if (fields.length > 0) {
+    res.status(400).json({
+      success: false,
+      message: "Invalid query parameters",
+      errors: fields.map((field) => ({ field, message: "Unknown query parameter" })),
+    });
+    return;
+  }
+
+  const data = await getPopularRecipes();
+  res.status(200).json({ data });
 };
