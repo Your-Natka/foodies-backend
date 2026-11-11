@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
+import recipeRoutes from "./routes/recipeRoutes.js";
 
 const app = express();
 const allowedOrigins =
@@ -16,8 +17,9 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error("CORS: Origin not allowed"));
+      return callback(Object.assign(new Error("CORS: Origin not allowed"), { status: 403 }));
     },
+    credentials: true,
   }),
 );
 app.use(express.json());
@@ -29,6 +31,8 @@ app.get("/api/health", (req, res) => {
     message: "Foodies API is running!",
   });
 });
+
+app.use("/api/recipes", recipeRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
