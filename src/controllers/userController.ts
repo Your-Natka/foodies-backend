@@ -18,6 +18,8 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
       _count: {
         select: {
           recipes: true,
+          followers: true,
+          following: true,
         },
       },
       recipes: {
@@ -33,8 +35,6 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
           recipeId: true,
         },
       },
-      followers: true,
-      following: true,
     },
   });
 
@@ -52,8 +52,8 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
     avatar: user.avatar,
     recipesCount: user._count.recipes,
     favoritesCount: user.favorites.length,
-    followersCount: user.followers.length,
-    followingCount: user.following.length,
+    followersCount: user._count.followers,
+    followingCount: user._count.following,
     recipes: user.recipes,
   });
 };
@@ -80,9 +80,9 @@ export const getUserById: RequestHandler = async (req, res) => {
       _count: {
         select: {
           recipes: true,
+          followers: true,
         },
       },
-      followers: true,
       recipes: {
         select: {
           id: true,
@@ -107,7 +107,7 @@ export const getUserById: RequestHandler = async (req, res) => {
     email: user.email,
     avatar: user.avatar,
     recipesCount: user._count.recipes,
-    followersCount: user.followers.length,
+    followersCount: user._count.followers,
     recipes: user.recipes,
   });
 };
