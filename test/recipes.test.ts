@@ -7,6 +7,7 @@ import type { Server } from "node:http";
 import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
 import pg from "pg";
+import jwt from "jsonwebtoken";
 
 if (!process.env.TEST_DATABASE_URL) {
   throw new Error("Set TEST_DATABASE_URL to run PostgreSQL integration tests");
@@ -18,6 +19,8 @@ const admin = new pg.Client({ connectionString: databaseUrl.href });
 databaseUrl.pathname = `/${databaseName}`;
 process.env.DATABASE_URL = databaseUrl.href;
 process.env.ALLOWED_ORIGINS = "http://localhost:5173";
+const jwtSecret = randomUUID();
+process.env.JWT_SECRET = jwtSecret;
 
 let databaseCreated = false;
 let prisma: typeof import("../prisma/client.ts").default;
@@ -26,6 +29,7 @@ let baseUrl: string;
 
 const firstOwner = "10000000000000000000000a";
 const secondOwner = "10000000000000000000000b";
+const ownerWithoutRecipes = "10000000000000000000000c";
 const salmon = "20000000000000000000000a";
 const salt = "20000000000000000000000b";
 const recipeId = (number: number) => number.toString(16).padStart(24, "0");
@@ -51,6 +55,7 @@ before(async () => {
   await prisma.user.createMany({ data: [
     { id: firstOwner, name: "Olena", email: "olena@example.com", password: "private-password" },
     { id: secondOwner, name: "Taras", email: "taras@example.com", password: "private-password" },
+    { id: ownerWithoutRecipes, name: "Oksana", email: "oksana@example.com", password: "private-password" },
   ] });
   await prisma.ingredient.createMany({ data: [
     { id: salmon, name: "Salmon", img: "https://example.com/salmon.png" },
@@ -121,6 +126,10 @@ const popularRecipes = async () => {
   assert.deepEqual(Object.keys(body), ["data"]);
   return body.data;
 };
+
+const authHeaders = (userId: string) => ({
+  Authorization: `Bearer ${jwt.sign({ sub: userId, type: "access" }, jwtSecret, { expiresIn: "5m" })}`,
+});
 
 test("каталог доступний гостю та містить тільки публічні дані автора", async () => {
   const body = await catalog();
@@ -344,11 +353,154 @@ test("популярні рецепти не приймають пагінаці
   });
 });
 
+test("приватні маршрути відхиляють відсутній, прострочений або неправильний токен", async (context) => {
+  const tokens = [
+    ["без токена", undefined],
+    ["неправильний токен", "invalid"],
+    ["прострочений", jwt.sign({ sub: firstOwner, type: "access" }, jwtSecret, { expiresIn: -1 })],
+    ["інший підпис", jwt.sign({ sub: firstOwner, type: "access" }, randomUUID())],
+    ["refresh замість access", jwt.sign({ sub: firstOwner, type: "refresh" }, jwtSecret)],
+    ["без користувача", jwt.sign({ type: "access" }, jwtSecret)],
+  ] as const;
+
+  for (const [name, token] of tokens) {
+    await context.test(name, async () => {
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      for (const [method, path] of [["GET", "/own"], ["DELETE", `/${recipeId(1)}`]]) {
+        const response = await fetch(`${baseUrl}/api/recipes${path}`, { method, headers });
+        assert.equal(response.status, 401);
+      }
+    });
+  }
+  assert.ok(await prisma.recipe.findUnique({ where: { id: recipeId(1) } }));
+});
+
+test("/own повертає лише рецепти власника токена з пагінацією та публічними полями", async () => {
+  for (const [ownerId, expected] of [
+    [firstOwner, [8, 7, 6, 5, 4, 3, 2, 1]],
+    [secondOwner, [13, 12, 11, 10, 9]],
+  ] as const) {
+    const response = await fetch(`${baseUrl}/api/recipes/own`, { headers: authHeaders(ownerId) });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+    const body = await response.json() as CatalogResponse;
+    assert.deepEqual(body.data.map(({ id }) => id), expected.map(recipeId));
+    assert.deepEqual(body.pagination, { page: 1, limit: 9, total: expected.length, totalPages: 1 });
+    for (const recipe of body.data) {
+      assert.equal(recipe.owner.id, ownerId);
+      assert.deepEqual(Object.keys(recipe.owner).sort(), ["avatar", "id", "name"]);
+    }
+  }
+
+  const response = await fetch(`${baseUrl}/api/recipes/own?page=2&limit=3`, { headers: authHeaders(firstOwner) });
+  assert.equal(response.status, 200);
+  const body = await response.json() as CatalogResponse;
+  assert.deepEqual(body.data.map(({ id }) => id), [5, 4, 3].map(recipeId));
+  assert.deepEqual(body.pagination, { page: 2, limit: 3, total: 8, totalPages: 3 });
+});
+
+test("/own повертає порожній список для нового власника та сторінки за межами результатів", async () => {
+  const empty = await fetch(`${baseUrl}/api/recipes/own`, { headers: authHeaders(ownerWithoutRecipes) });
+  assert.equal(empty.status, 200);
+  assert.deepEqual(await empty.json(), { data: [], pagination: { page: 1, limit: 9, total: 0, totalPages: 0 } });
+  const outside = await fetch(`${baseUrl}/api/recipes/own?page=2`, { headers: authHeaders(firstOwner) });
+  assert.equal(outside.status, 200);
+  assert.deepEqual(await outside.json(), { data: [], pagination: { page: 2, limit: 9, total: 8, totalPages: 1 } });
+});
+
+test("порожній sub у підписаному токені не відкриває чужі рецепти через /own", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/own`, { headers: authHeaders("") });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { data: [], pagination: { page: 1, limit: 9, total: 0, totalPages: 0 } });
+});
+
+test("/own перевіряє пагінацію та не приймає ownerId або фільтри каталогу", async (context) => {
+  const cases: [string, string][] = [
+    ["page=0", "page"], ["limit=101", "limit"], ["limit=2&limit=3", "limit"],
+    ["page=2147483647&limit=100", "page"], [`ownerId=${secondOwner}`, "ownerId"],
+    ["category=Seafood", "category"], ["area=Greek", "area"],
+    [`ingredientId=${salmon}`, "ingredientId"], ["unknown=1", "unknown"],
+  ];
+  for (const [query, field] of cases) {
+    await context.test(query, async () => {
+      const response = await fetch(`${baseUrl}/api/recipes/own?${query}`, { headers: authHeaders(firstOwner) });
+      assert.equal(response.status, 400);
+      const body = await response.json() as { errors: { field: string }[] };
+      assert.ok(body.errors.some((error) => error.field === field));
+    });
+  }
+});
+
+test("видалення чужого рецепта повертає 403 і не змінює рецепт, інгредієнти та обране", async () => {
+  const response = await fetch(`${baseUrl}/api/recipes/${recipeId(1)}?ownerId=${firstOwner}`, {
+    method: "DELETE",
+    headers: { ...authHeaders(secondOwner), "Content-Type": "application/json" },
+    body: JSON.stringify({ ownerId: firstOwner }),
+  });
+  assert.equal(response.status, 403);
+  assert.deepEqual(await response.json(), { success: false, message: "You can only delete your own recipes" });
+  const recipe = await prisma.recipe.findUnique({
+    where: { id: recipeId(1) }, include: { ingredients: true, favorites: true },
+  });
+  assert.ok(recipe);
+  assert.equal(recipe.ownerId, firstOwner);
+  assert.equal(recipe.ingredients.length, 2);
+  assert.equal(recipe.favorites.length, 2);
+});
+
+test("видалення перевіряє формат ID і повертає 404 для відсутнього рецепта", async () => {
+  for (const [id, status, message] of [
+    ["bad-id", 400, "Invalid recipe ID"],
+    ["ffffffffffffffffffffffff", 404, "Recipe not found"],
+  ] as const) {
+    const response = await fetch(`${baseUrl}/api/recipes/${id}`, { method: "DELETE", headers: authHeaders(firstOwner) });
+    assert.equal(response.status, status);
+    assert.deepEqual(await response.json(), { success: false, message });
+  }
+});
+
+test("власник видаляє рецепт разом зі зв'язками, повторне видалення повертає 404", async () => {
+  const id = recipeId(255);
+  await prisma.recipe.create({ data: {
+    id, title: "Own recipe", description: "Description", instructions: "Cook",
+    thumb: "https://example.com/recipe.jpg", category: "Seafood", area: "Greek", time: 30,
+    ownerId: firstOwner, createdAt: new Date("2026-01-04T00:00:00Z"),
+    ingredients: { create: [{ ingredientId: salmon, measure: "100 g" }] },
+    favorites: { create: [{ userId: firstOwner }, { userId: secondOwner }] },
+  } });
+  assert.equal((await popularRecipes())[0].id, id);
+
+  const remove = () => fetch(`${baseUrl}/api/recipes/${id.toUpperCase()}`, {
+    method: "DELETE", headers: authHeaders(firstOwner),
+  });
+  const response = await remove();
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), "");
+  assert.equal(await prisma.recipe.findUnique({ where: { id } }), null);
+  assert.equal(await prisma.recipeIngredient.count({ where: { recipeId: id } }), 0);
+  assert.equal(await prisma.favorite.count({ where: { recipeId: id } }), 0);
+  assert.ok(await prisma.ingredient.findUnique({ where: { id: salmon } }));
+  assert.ok(await prisma.user.findUnique({ where: { id: firstOwner } }));
+  assert.equal((await fetch(`${baseUrl}/api/recipes/${id}`)).status, 404);
+  assert.equal((await remove()).status, 404);
+  assert.equal((await catalog()).pagination.total, 13);
+  const own = await fetch(`${baseUrl}/api/recipes/own`, { headers: authHeaders(firstOwner) });
+  const body = await own.json() as CatalogResponse;
+  assert.equal(body.pagination.total, 8);
+  assert.ok(body.data.every((recipe) => recipe.id !== id));
+  assert.ok((await popularRecipes()).every((recipe) => recipe.id !== id));
+});
+
 test("помилка читання не розкриває подробиці БД", async () => {
   await prisma.$executeRaw`ALTER TABLE "recipes" RENAME TO "recipes_unavailable"`;
   try {
     for (const path of ["/api/recipes", "/api/recipes/popular", `/api/recipes/${recipeId(1)}`]) {
       const response = await fetch(`${baseUrl}${path}`);
+      assert.equal(response.status, 500);
+      assert.deepEqual(await response.json(), { success: false, message: "Internal Server Error" });
+    }
+    for (const [method, path] of [["GET", "/own"], ["DELETE", `/${recipeId(1)}`]]) {
+      const response = await fetch(`${baseUrl}/api/recipes${path}`, { method, headers: authHeaders(firstOwner) });
       assert.equal(response.status, 500);
       assert.deepEqual(await response.json(), { success: false, message: "Internal Server Error" });
     }

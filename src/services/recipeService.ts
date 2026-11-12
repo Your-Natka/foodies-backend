@@ -20,7 +20,7 @@ export const getRecipes = async (query: RecipeQuery) => {
 
   if (category) where.category = category;
   if (area) where.area = area;
-  if (ownerId) where.ownerId = ownerId;
+  if (ownerId !== undefined) where.ownerId = ownerId;
   if (ingredientId) where.ingredients = { some: { ingredientId } };
 
   const [data, total] = await prisma.$transaction([
@@ -46,6 +46,14 @@ export const getPopularRecipes = async () => {
     orderBy: [{ favorites: { _count: "desc" } }, { createdAt: "desc" }, { id: "desc" }],
     select: recipeCardSelect,
   });
+};
+
+export const deleteOwnRecipe = async (id: string, ownerId: string) => {
+  const result = await prisma.recipe.deleteMany({ where: { id, ownerId } });
+  if (result.count > 0) return "deleted";
+
+  const recipe = await prisma.recipe.findUnique({ where: { id }, select: { id: true } });
+  return recipe ? "forbidden" : "not_found";
 };
 
 export const getRecipeById = async (id: string) => {

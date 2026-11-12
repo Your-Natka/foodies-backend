@@ -19,9 +19,11 @@ export const parseRecipeId = (value: unknown) => {
   return value.toLowerCase();
 };
 
-export const parseRecipeQuery = (input: Record<string, unknown>) => {
+export const parseRecipeQuery = (
+  input: Record<string, unknown>,
+  allowedFields = ["page", "limit", "category", "area", "ingredientId", "ownerId"],
+) => {
   const errors: FieldError[] = [];
-  const allowedFields = ["page", "limit", "category", "area", "ingredientId", "ownerId"];
 
   for (const field of Object.keys(input)) {
     if (!allowedFields.includes(field)) {
