@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import authRouter from "./routes/authRoutes.ts";
+import userRouter from "./routes/userRoutes.ts";
 
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
@@ -29,6 +31,9 @@ app.get("/api/health", (req, res) => {
     message: "Foodies API is running!",
   });
 });
+
+app.use("/auth", authRouter);
+app.use("/users", userRouter);
 
 app.use(notFound);
 app.use(errorHandler);
