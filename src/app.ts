@@ -65,7 +65,7 @@ app.use(
   "/api-docs",
   swaggerUi.serve,
   swaggerUi.setup(openApi, {
-    customSiteTitle: "Foodies Recipes API",
+    customSiteTitle: "Foodies API",
     swaggerOptions: { persistAuthorization: false },
   }),
 );

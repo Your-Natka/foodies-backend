@@ -18,8 +18,8 @@
 | Обрані рецепти та `isFavorite` | Заплановано, BE-04 |
 | `GET /api/categories`, `GET /api/areas`, `GET /api/ingredients`, `GET /api/testimonials` | Реалізовано |
 | Auth і users | Реалізовано |
-| Підписки (followers/following) | Заплановано, BE-06 |
-| Swagger UI на `/api-docs` | Реалізовано для маршрутів рецептів |
+| Підписки (followers/following) | Реалізовано |
+| Swagger UI на `/api-docs` | Реалізовано для рецептів і підписок |
 
 Публічні маршрути доступні без входу. Для приватних потрібен заголовок `Authorization: Bearer <accessToken>`.
 
@@ -280,7 +280,7 @@ Access token повертається у JSON і діє 15 хвилин. Refresh
 
 ### GET /api/users/:id
 
-Приватний. Повертає `id`, `name`, `email`, `avatar`, `recipesCount`, `followersCount` та `recipes` без обгортки `data`. Поля `isFollowing` поки немає. Елементи recipes містять `id`, `title`, `description`, `thumb`, як у поточному профілі.
+Приватний. Повертає `id`, `name`, `email`, `avatar`, `recipesCount`, `followersCount`, `isFollowing` та `recipes` без обгортки `data`. `isFollowing` показує, чи авторизований користувач підписаний на цей профіль. Елементи recipes містять `id`, `title`, `description`, `thumb`, як у поточному профілі.
 
 Рецепти автора отримуються окремо через `GET /api/recipes?ownerId=:id&page=1&limit=9`.
 
@@ -290,7 +290,7 @@ Access token повертається у JSON і діє 15 хвилин. Refresh
 
 ## Підписки
 
-Запропонований контракт, маршрути ще не реалізовані.
+Контракт BE-06 / INT-01. Маршрути використовують таблицю `follows` з міграції `20261112195306_add_follow_table`.
 
 | Маршрут | Параметри | Результат |
 | --- | --- | --- |
@@ -299,7 +299,9 @@ Access token повертається у JSON і діє 15 хвилин. Refresh
 | PUT /api/users/:id/follow | Без тіла | 201 для нового зв'язку, 200 для наявного |
 | DELETE /api/users/:id/follow | Без тіла | 204, також при повторному запиті |
 
-Усі маршрути приватні. Списки повертають pagination. Пропонований початковий limit для цих списків 5, максимум 100; порядок за `id ASC`. Підписка на себе повертає `400`, неіснуючий користувач `404`. Після PUT відповідь `{ "data": { "userId": "...", "isFollowing": true } }`. Зв'язки і лічильники обох користувачів змінюються разом.
+Усі маршрути потребують access token. Для Followers `:id` — ID відкритого профілю. Для Following профіль визначає access token. Списки повертають `{ data, pagination: { page, limit, total, totalPages } }`. Початкові значення — сторінка 1 і 5 карток, максимум 100 на сторінку. Порядок карток — `id ASC`. Сторінка за межами результатів повертає `200` з порожнім `data`. Якщо список порожній, `totalPages` дорівнює 0. Невалідні параметри або ID повертають `400`, неіснуючий профіль — `404`.
+
+PUT і DELETE використовують ID підписника з access token. Спроба підписатися або відписатися від себе повертає `400`. Якщо один із користувачів не існує, відповідь має статус `404`. Відповідь PUT — `{ "data": { "userId": "...", "isFollowing": true } }`. DELETE повертає `204` без тіла, зокрема якщо зв’язку вже немає.
 
 Картка користувача в списку:
 
@@ -316,7 +318,9 @@ Access token повертається у JSON і діє 15 хвилин. Refresh
 }
 ```
 
-`recipes` містить до чотирьох останніх рецептів за createdAt та ID. Email і дані сесії в картки списку не включаються.
+`isFollowing` показує, чи авторизований користувач підписаний на цю картку. `recipes` містить до чотирьох останніх рецептів за `createdAt DESC, id DESC`. Email і дані сесії в картки списку не включаються.
+
+Після PUT або DELETE лічильники профілю та списки відображають той самий стан підписки.
 
 ## Довідники та відгуки
 
@@ -343,13 +347,13 @@ Access token повертається у JSON і діє 15 хвилин. Refresh
 
 Swagger UI доступний за адресою `/api-docs/`, а JSON-специфікація — `/api-docs/openapi.json`.
 
-Поточна Swagger UI документація містить шість операцій Recipes API: каталог, деталі рецепта, популярні рецепти, власні рецепти, створення та видалення.
+Swagger UI документує Recipes API та чотири операції підписок.
 
 Для приватних маршрутів використовується `bearerAuth`, а для завантаження фотографій — `multipart/form-data` з binary-полем.
 
-Специфікація Reference Data API (BE-05) знаходиться у файлі [reference-data.openapi.yaml](reference-data.openapi.yaml). Вона описує маршрути Categories, Areas, Ingredients і Testimonials та може бути відкрита у Swagger Editor.
+Специфікація Reference Data API знаходиться у файлі [reference-data.openapi.yaml](reference-data.openapi.yaml). Вона описує маршрути Categories, Areas, Ingredients і Testimonials та може бути відкрита у Swagger Editor.
 
-Маршрути Auth, Users та інші майбутні endpoints поки не включені до основної Swagger UI специфікації.
+Контракти Auth і профілів описані в цьому документі.
 
 ## Health
 

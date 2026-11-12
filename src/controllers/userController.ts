@@ -83,6 +83,11 @@ export const getUserById: RequestHandler = async (req, res) => {
           followers: true,
         },
       },
+      followers: {
+        where: { followerId: req.user!.sub },
+        select: { followerId: true },
+        take: 1,
+      },
       recipes: {
         select: {
           id: true,
@@ -101,13 +106,14 @@ export const getUserById: RequestHandler = async (req, res) => {
     return;
   }
 
-  res.status(200).json({
+  res.set("Cache-Control", "private, no-store").status(200).json({
     id: user.id,
     name: user.name,
     email: user.email,
     avatar: user.avatar,
     recipesCount: user._count.recipes,
     followersCount: user._count.followers,
+    isFollowing: user.followers.length > 0,
     recipes: user.recipes,
   });
 };

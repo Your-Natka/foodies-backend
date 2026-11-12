@@ -35,7 +35,11 @@ before(async () => {
   const migration = spawnSync(process.execPath, [
     fileURLToPath(new URL("../node_modules/prisma/build/index.js", import.meta.url)),
     "migrate", "deploy",
-  ], { env: process.env, encoding: "utf8", timeout: 30000 });
+  ], {
+    env: { ...process.env, DIRECT_URL: databaseUrl.href },
+    encoding: "utf8",
+    timeout: 30000,
+  });
   assert.equal(migration.status, 0, migration.stderr + migration.stdout);
 
   prisma = (await import("../prisma/client.ts")).default;

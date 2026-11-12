@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Foodies Recipes API",
+    "title": "Foodies API",
     "version": "1.0.0",
-    "description": "Каталог, деталі, популярні та власні рецепти, створення з фото й видалення. Для приватних маршрутів використовуйте accessToken з POST /api/auth/login або /api/auth/register. Операції обраного ще не реалізовані."
+    "description": "Каталог, деталі, популярні та власні рецепти, створення з фото й видалення, а також підписки користувачів. Для приватних маршрутів використовуйте accessToken з POST /api/auth/login або /api/auth/register. Операції обраного ще не реалізовані."
   },
   "servers": [
     {
@@ -14,6 +14,10 @@
     {
       "name": "Recipes",
       "description": "Рецепти"
+    },
+    {
+      "name": "Follows",
+      "description": "Підписники та підписки користувачів"
     }
   ],
   "paths": {
@@ -343,6 +347,189 @@
           }
         }
       }
+    },
+    "/api/users/{id}/followers": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/FollowUserId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Follows"
+        ],
+        "summary": "Підписники профілю",
+        "operationId": "listFollowers",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Підписники вказаного користувача за зростанням ID. Стан isFollowing визначається для власника access token.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FollowPage"
+          },
+          {
+            "$ref": "#/components/parameters/FollowLimit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список підписників із пагінацією",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/api/users/following": {
+      "get": {
+        "tags": [
+          "Follows"
+        ],
+        "summary": "Мої підписки",
+        "operationId": "listFollowing",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Підписки власника access token за зростанням ID.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FollowPage"
+          },
+          {
+            "$ref": "#/components/parameters/FollowLimit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список підписок із пагінацією",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/api/users/{id}/follow": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/FollowUserId"
+        }
+      ],
+      "put": {
+        "tags": [
+          "Follows"
+        ],
+        "summary": "Підписатися на користувача",
+        "operationId": "followUser",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Створює підписку від власника access token. Підписка на власний профіль повертає 400.",
+        "responses": {
+          "200": {
+            "description": "Підписка вже існує",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Підписку створено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Follows"
+        ],
+        "summary": "Відписатися від користувача",
+        "operationId": "unfollowUser",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Видаляє підписку власника access token. Відсутній зв’язок також повертає 204.",
+        "responses": {
+          "204": {
+            "description": "Підписки немає"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -639,6 +826,103 @@
             }
           }
         }
+      },
+      "FollowUserCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "avatar",
+          "recipesCount",
+          "isFollowing",
+          "recipes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{24}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatar": {
+            "type": "string",
+            "nullable": true
+          },
+          "recipesCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isFollowing": {
+            "type": "boolean"
+          },
+          "recipes": {
+            "type": "array",
+            "maxItems": 4,
+            "description": "Останні рецепти за createdAt DESC, id DESC.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "thumb"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-fA-F0-9]{24}$"
+                },
+                "thumb": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "FollowList": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FollowUserCard"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "FollowResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "userId",
+              "isFollowing"
+            ],
+            "properties": {
+              "userId": {
+                "type": "string",
+                "pattern": "^[a-fA-F0-9]{24}$"
+              },
+              "isFollowing": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -758,6 +1042,40 @@
               "message": "Internal Server Error"
             }
           }
+        }
+      }
+    },
+    "parameters": {
+      "FollowUserId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "ID профілю.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{24}$"
+        }
+      },
+      "FollowPage": {
+        "name": "page",
+        "in": "query",
+        "description": "Номер сторінки. Зсув (page - 1) * limit не може перевищувати 2147483647.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647,
+          "default": 1
+        }
+      },
+      "FollowLimit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Кількість карток на сторінці.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 5
         }
       }
     }
