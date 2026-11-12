@@ -18,8 +18,8 @@ model User {
   refreshTokenHash String?   @map("refresh_token_hash") @db.Text
   sessionExpiresAt DateTime? @map("session_expires_at")
 
-  followers         String[] @default([])
-  following         String[] @default([])
+  followers Follow[] @relation("UserFollowing")
+  following Follow[] @relation("UserFollowers")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -118,4 +118,18 @@ model Testimonial {
   owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
 
   @@map("testimonials")
+}
+
+model Follow {
+  followerId  String   @map("follower_id") @db.VarChar(24)
+  followingId String   @map("following_id") @db.VarChar(24)
+
+  follower  User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
 }

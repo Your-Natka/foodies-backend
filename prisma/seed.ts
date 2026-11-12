@@ -15,6 +15,7 @@ const getId = (id: MongoId): string => {
 
 const TEMP_PASSWORD = "FoodiesTest123!";
 
+// Seed users
 const seedUsers = async () => {
   const hashedPassword = await bcrypt.hash(TEMP_PASSWORD, 10);
 
@@ -30,8 +31,6 @@ const seedUsers = async () => {
         email: user.email,
         password: hashedPassword,
         avatar: user.avatar,
-        followers: user.followers,
-        following: user.following,
       },
     });
   }
@@ -39,6 +38,52 @@ const seedUsers = async () => {
   console.log("Users seeded successfully!");
 };
 
+// Seed follows
+const seedFollows = async () => {
+  const follows = new Set<string>();
+
+  for (const user of usersData) {
+    const userId = getId(user._id);
+
+    for (const follower of user.followers ?? []) {
+      const followerId = getId(follower);
+
+      if (followerId !== userId) {
+        follows.add(JSON.stringify([followerId, userId]));
+      }
+    }
+
+    for (const following of user.following ?? []) {
+      const followingId = getId(following);
+
+      if (followingId !== userId) {
+        follows.add(JSON.stringify([userId, followingId]));
+      }
+    }
+  }
+
+  for (const follow of follows) {
+    const [followerId, followingId] = JSON.parse(follow) as [string, string];
+
+    await prisma.follow.upsert({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
+      },
+      update: {},
+      create: {
+        followerId,
+        followingId,
+      },
+    });
+  }
+
+  console.log("Follows seeded successfully!");
+};
+
+// Seed categories
 const seedCategories = async () => {
   for (const category of categoriesData) {
     const id = getId(category._id);
@@ -56,6 +101,7 @@ const seedCategories = async () => {
   console.log("Categories seeded successfully!");
 };
 
+// Seed areas
 const seedAreas = async () => {
   for (const area of areasData) {
     const id = getId(area._id);
@@ -73,6 +119,7 @@ const seedAreas = async () => {
   console.log("Areas seeded successfully!");
 };
 
+// Seed ingredients
 const seedIngredients = async () => {
   for (const ingredient of ingredientsData) {
     const id = getId(ingredient._id);
@@ -92,6 +139,7 @@ const seedIngredients = async () => {
   console.log("Ingredients seeded successfully!");
 };
 
+// Seed recipes
 const seedRecipes = async () => {
   for (const recipe of recipesData) {
     const id = getId(recipe._id);
@@ -127,6 +175,7 @@ const seedRecipes = async () => {
   console.log("Recipes seeded successfully!");
 };
 
+// Seed testimonials
 const seedTestimonials = async () => {
   for (const testimonial of testimonialsData) {
     const id = getId(testimonial._id);
@@ -146,6 +195,7 @@ const seedTestimonials = async () => {
   console.log("Testimonials seeded successfully!");
 };
 
+// Main seeding function
 const main = async () => {
   try {
     console.log("Starting database seeding...");
@@ -155,6 +205,7 @@ const main = async () => {
     await seedAreas();
     await seedIngredients();
     await seedRecipes();
+    await seedFollows();
     await seedTestimonials();
 
     console.log("Database seeding completed successfully!");
