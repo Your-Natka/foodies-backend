@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "../utils/generateTokens.ts";
 
 declare global {
   namespace Express {
@@ -16,30 +17,39 @@ export const authenticate = (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): void => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Access token is required" });
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({
+      success: false,
+      message: "Access token is required.",
+    });
     return;
   }
 
-  const token = authHeader.split(" ")[1];
-  const secret = process.env.JWT_SECRET;
+  const token = authHeader.slice("Bearer ".length).trim();
 
-  if (!secret) {
-    throw new Error("JWT_SECRET is not configured");
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      message: "Access token is required.",
+    });
+    return;
   }
 
   try {
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, getJwtSecret());
 
     if (
       typeof decoded === "string" ||
       typeof decoded.sub !== "string" ||
       decoded.type !== "access"
     ) {
-      res.status(401).json({ error: "Invalid access token" });
+      res.status(401).json({
+        success: false,
+        message: "Invalid access token.",
+      });
       return;
     }
 
@@ -50,6 +60,9 @@ export const authenticate = (
 
     next();
   } catch {
-    res.status(401).json({ error: "Invalid or expired access token" });
+    res.status(401).json({
+      success: false,
+      message: "Invalid or expired access token.",
+    });
   }
 };

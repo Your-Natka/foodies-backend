@@ -6,15 +6,21 @@ export const saveRefreshToken = async (
   userId: string,
   refreshToken: string,
 ): Promise<void> => {
-  const refreshTokenHash = hashToken(refreshToken);
-
-  const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_DURATION);
-
   await prisma.user.update({
     where: { id: userId },
     data: {
-      refreshTokenHash,
-      sessionExpiresAt,
+      refreshTokenHash: hashToken(refreshToken),
+      sessionExpiresAt: new Date(Date.now() + REFRESH_TOKEN_DURATION),
+    },
+  });
+};
+
+export const revokeRefreshToken = async (userId: string): Promise<void> => {
+  await prisma.user.updateMany({
+    where: { id: userId },
+    data: {
+      refreshTokenHash: null,
+      sessionExpiresAt: null,
     },
   });
 };

@@ -28,7 +28,11 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
           thumb: true,
         },
       },
-      favoriteRecipeIds: true,
+      favorites: {
+        select: {
+          recipeId: true,
+        },
+      },
       followers: true,
       following: true,
     },
@@ -47,7 +51,7 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
     email: user.email,
     avatar: user.avatar,
     recipesCount: user._count.recipes,
-    favoritesCount: user.favoriteRecipeIds.length,
+    favoritesCount: user.favorites.length,
     followersCount: user.followers.length,
     followingCount: user.following.length,
     recipes: user.recipes,

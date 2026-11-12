@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../../prisma/client.ts";
+
 import { generateId } from "../utils/generateId.ts";
 import {
   generateAccessToken,
@@ -9,98 +10,134 @@ import {
 } from "../utils/generateTokens.ts";
 import { hashPassword, comparePassword } from "../utils/hashPassword.ts";
 import { hashToken } from "../utils/hashToken.ts";
-import type {
-  RegisterInput,
-  LoginInput,
-  RefreshInput,
-} from "../validators/authValidator.ts";
-import { REFRESH_TOKEN_DURATION } from "../constants/auth.ts";
-import { saveRefreshToken } from "../services/authService.ts";
+import {
+  clearRefreshCookie,
+  setRefreshCookie,
+} from "../utils/refreshCookie.ts";
 
-// Register new user
+import type { RegisterInput, LoginInput } from "../validators/authValidator.ts";
+
+import { REFRESH_TOKEN_DURATION } from "../constants/auth.ts";
+import {
+  revokeRefreshToken,
+  saveRefreshToken,
+} from "../services/authService.ts";
+
+const getRefreshTokenFromCookie = (req: Parameters<RequestHandler>[0]) => {
+  const cookies = (
+    req as typeof req & {
+      cookies?: Record<string, string>;
+    }
+  ).cookies;
+
+  return cookies?.refreshToken;
+};
+
+const isPrismaUniqueError = (error: unknown): boolean => {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+};
+
+const publicUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  avatar: true,
+  createdAt: true,
+} as const;
+
+// POST /api/auth/register
 export const register: RequestHandler = async (req, res) => {
   const { name, email, password } = req.body as RegisterInput;
 
-  // Check if email already exists
   const existingUser = await prisma.user.findUnique({
     where: { email },
+    select: { id: true },
   });
 
   if (existingUser) {
     res.status(409).json({
-      error: "Email already registered",
+      success: false,
+      message: "An account with this email already exists.",
     });
     return;
   }
 
-  // Hash password
   const hashedPassword = await hashPassword(password);
 
-  // Create user
-  const user = await prisma.user.create({
-    data: {
-      id: generateId(),
-      name,
-      email,
-      password: hashedPassword,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      avatar: true,
-      createdAt: true,
-    },
-  });
+  try {
+    const user = await prisma.user.create({
+      data: {
+        id: generateId(),
+        name,
+        email,
+        password: hashedPassword,
+      },
+      select: publicUserSelect,
+    });
 
-  // Generate tokens
-  const accessToken = generateAccessToken(user.id);
-  const refreshToken = generateRefreshToken(user.id);
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
 
-  // Save refresh token hash
-  await saveRefreshToken(user.id, refreshToken);
+    await saveRefreshToken(user.id, refreshToken);
+    setRefreshCookie(res, refreshToken);
 
-  res.status(201).json({
-    user,
-    accessToken,
-    refreshToken,
-  });
+    res.status(201).json({
+      success: true,
+      user,
+      accessToken,
+    });
+  } catch (error) {
+    if (isPrismaUniqueError(error)) {
+      res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+      return;
+    }
+
+    throw error;
+  }
 };
 
-// Login user
+// POST /api/auth/login
 export const login: RequestHandler = async (req, res) => {
   const { email, password } = req.body as LoginInput;
 
-  // Find user by email
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
   if (!user) {
     res.status(401).json({
-      error: "Invalid email or password",
+      success: false,
+      message: "Invalid email or password.",
     });
     return;
   }
 
-  // Compare password
   const isPasswordValid = await comparePassword(password, user.password);
 
   if (!isPasswordValid) {
     res.status(401).json({
-      error: "Invalid email or password",
+      success: false,
+      message: "Invalid email or password.",
     });
     return;
   }
 
-  // Generate tokens
   const accessToken = generateAccessToken(user.id);
   const refreshToken = generateRefreshToken(user.id);
 
-  // Replace previous refresh token
   await saveRefreshToken(user.id, refreshToken);
+  setRefreshCookie(res, refreshToken);
 
   res.status(200).json({
+    success: true,
     user: {
       id: user.id,
       name: user.name,
@@ -109,15 +146,21 @@ export const login: RequestHandler = async (req, res) => {
       createdAt: user.createdAt,
     },
     accessToken,
-    refreshToken,
   });
 };
 
-// Refresh tokens with rotation
+// POST /api/auth/refresh
 export const refresh: RequestHandler = async (req, res) => {
-  const { refreshToken } = req.body as RefreshInput;
+  const refreshToken = getRefreshTokenFromCookie(req);
 
-  // Verify refresh token
+  if (!refreshToken) {
+    res.status(401).json({
+      success: false,
+      message: "Refresh token is missing.",
+    });
+    return;
+  }
+
   let payload: jwt.JwtPayload;
 
   try {
@@ -125,7 +168,8 @@ export const refresh: RequestHandler = async (req, res) => {
 
     if (typeof decoded === "string") {
       res.status(401).json({
-        error: "Invalid refresh token",
+        success: false,
+        message: "Invalid refresh token.",
       });
       return;
     }
@@ -133,22 +177,22 @@ export const refresh: RequestHandler = async (req, res) => {
     payload = decoded;
   } catch {
     res.status(401).json({
-      error: "Invalid or expired refresh token",
+      success: false,
+      message: "Invalid or expired refresh token.",
     });
     return;
   }
 
-  // Check token payload
   if (payload.type !== "refresh" || typeof payload.sub !== "string") {
     res.status(401).json({
-      error: "Invalid refresh token",
+      success: false,
+      message: "Invalid refresh token.",
     });
     return;
   }
 
   const userId = payload.sub;
 
-  // Find user and stored refresh token hash
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -157,40 +201,37 @@ export const refresh: RequestHandler = async (req, res) => {
     },
   });
 
-  if (!user || !user.refreshTokenHash || !user.sessionExpiresAt) {
+  if (!user?.refreshTokenHash || !user.sessionExpiresAt) {
     res.status(401).json({
-      error: "Refresh token not found or revoked",
+      success: false,
+      message: "Session not found or revoked.",
     });
     return;
   }
 
-  // Check session expiration
   if (user.sessionExpiresAt <= new Date()) {
+    await revokeRefreshToken(userId);
+
+    clearRefreshCookie(res);
+
     res.status(401).json({
-      error: "Session expired",
+      success: false,
+      message: "Session expired. Please sign in again.",
     });
     return;
   }
 
-  // Compare provided token hash with stored hash
-  const isTokenValid = hashToken(refreshToken) === user.refreshTokenHash;
-
-  if (!isTokenValid) {
+  if (hashToken(refreshToken) !== user.refreshTokenHash) {
     res.status(401).json({
-      error: "Refresh token not found or revoked",
+      success: false,
+      message: "Refresh token has been revoked.",
     });
     return;
   }
 
-  // Generate new token pair
   const newAccessToken = generateAccessToken(userId);
   const newRefreshToken = generateRefreshToken(userId);
 
-  const newRefreshTokenHash = hashToken(newRefreshToken);
-
-  const newSessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_DURATION);
-
-  // Replace old refresh token
   const rotationResult = await prisma.user.updateMany({
     where: {
       id: userId,
@@ -200,36 +241,35 @@ export const refresh: RequestHandler = async (req, res) => {
       },
     },
     data: {
-      refreshTokenHash: newRefreshTokenHash,
-      sessionExpiresAt: newSessionExpiresAt,
+      refreshTokenHash: hashToken(newRefreshToken),
+      sessionExpiresAt: new Date(Date.now() + REFRESH_TOKEN_DURATION),
     },
   });
 
   if (rotationResult.count !== 1) {
+    clearRefreshCookie(res);
+
     res.status(401).json({
-      error: "Refresh token has already been used or revoked",
+      success: false,
+      message: "Refresh token has already been used or revoked.",
     });
     return;
   }
 
+  setRefreshCookie(res, newRefreshToken);
+
   res.status(200).json({
+    success: true,
     accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
   });
 };
 
-// Logout user
+// POST /api/auth/logout
 export const logout: RequestHandler = async (req, res) => {
   const userId = req.user!.sub;
 
-  // Revoke refresh token and end session
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      refreshTokenHash: null,
-      sessionExpiresAt: null,
-    },
-  });
+  await revokeRefreshToken(userId);
+  clearRefreshCookie(res);
 
   res.status(204).end();
 };
