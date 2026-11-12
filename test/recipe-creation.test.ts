@@ -42,7 +42,11 @@ before(async () => {
   databaseCreated = true;
   const migration = spawnSync(process.execPath, [
     fileURLToPath(new URL("../node_modules/prisma/build/index.js", import.meta.url)), "migrate", "deploy",
-  ], { env: process.env, encoding: "utf8", timeout: 30000 });
+  ], {
+    env: { ...process.env, DIRECT_URL: databaseUrl.href },
+    encoding: "utf8",
+    timeout: 30000,
+  });
   assert.equal(migration.status, 0, migration.stdout + migration.stderr);
   prisma = (await import("../prisma/client.ts")).default;
   await prisma.category.create({ data: { id: "300000000000000000000001", name: "Seafood" } });
@@ -307,7 +311,11 @@ test("збій видалення фото не повертає помилку 
 
 test("Swagger проходить перевірку OpenAPI і доступний через HTTP", async () => {
   const schema = await SwaggerParser.validate(fileURLToPath(new URL("../docs/openapi.json", import.meta.url)));
-  assert.equal(schema.info.title, "Foodies Recipes API");
+  assert.equal(schema.info.title, "Foodies API");
+  assert.deepEqual(schema.paths?.["/api/users/{id}/followers"]?.get?.security, [{ bearerAuth: [] }]);
+  assert.deepEqual(schema.paths?.["/api/users/following"]?.get?.security, [{ bearerAuth: [] }]);
+  assert.deepEqual(schema.paths?.["/api/users/{id}/follow"]?.put?.security, [{ bearerAuth: [] }]);
+  assert.deepEqual(schema.paths?.["/api/users/{id}/follow"]?.delete?.security, [{ bearerAuth: [] }]);
   assert.equal((await fetch(`${baseUrl}/api-docs/`)).status, 200);
   const response = await fetch(`${baseUrl}/api-docs/openapi.json`);
   assert.equal(response.status, 200);
