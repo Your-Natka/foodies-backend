@@ -7,6 +7,9 @@ import authRouter from "./routes/authRoutes.ts";
 import userRouter from "./routes/userRoutes.ts";
 import recipeRoutes from "./routes/recipeRoutes.ts";
 import categoryRoutes from "./routes/categoryRoutes.ts";
+import areaRoutes from "./routes/areaRoutes.ts";
+import ingredientRoutes from "./routes/ingredientRoutes.ts";
+import testimonialRoutes from "./routes/testimonialRoutes.ts";
 
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
@@ -52,6 +55,9 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/recipes", recipeRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/areas", areaRoutes);
+app.use("/api/ingredients", ingredientRoutes);
+app.use("/api/testimonials", testimonialRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
