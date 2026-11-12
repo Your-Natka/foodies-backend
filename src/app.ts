@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import authRouter from "./routes/authRoutes.ts";
 import userRouter from "./routes/userRoutes.ts";
 import recipeRoutes from "./routes/recipeRoutes.ts";
+import categoryRoutes from "./routes/categoryRoutes.ts";
 
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
@@ -50,7 +51,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/recipes", recipeRoutes);
-
+app.use("/api/categories", categoryRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
