@@ -1,0 +1,765 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Foodies Recipes API",
+    "version": "1.0.0",
+    "description": "Каталог, деталі, популярні та власні рецепти, створення з фото й видалення. Для приватних маршрутів використовуйте accessToken з POST /api/auth/login або /api/auth/register. Операції обраного ще не реалізовані."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Recipes",
+      "description": "Рецепти"
+    }
+  ],
+  "paths": {
+    "/api/recipes": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Каталог рецептів",
+        "operationId": "listRecipes",
+        "description": "Фільтри діють разом. Порядок createdAt DESC, id DESC. Порожні фільтри ігноруються; невідомі та повторні параметри повертають 400.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "Точна назва з довідника.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "description": "Точна назва з довідника.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "ingredientId",
+            "in": "query",
+            "required": false,
+            "description": "ID інгредієнта.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$",
+              "example": "6462a8f74c3d0ddd28897fb8"
+            }
+          },
+          {
+            "name": "ownerId",
+            "in": "query",
+            "required": false,
+            "description": "ID автора для публічного списку його рецептів.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$",
+              "example": "6462a8f74c3d0ddd28897fb8"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Номер сторінки; зсув (page - 1) * limit не більше 2147483647.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Кількість рецептів на сторінці.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 9
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список рецептів та серверна пагінація",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Створити власний рецепт",
+        "operationId": "addRecipe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Власник береться з access-токена. Рецепт та інгредієнти зберігаються разом. Якщо запис у БД не вдався, виконується видалення завантаженого фото.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipeForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Створений рецепт з ID, автором та інгредієнтами",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "502": {
+            "$ref": "#/components/responses/502"
+          }
+        }
+      }
+    },
+    "/api/recipes/popular": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Популярні рецепти",
+        "operationId": "listPopularRecipes",
+        "description": "До чотирьох рецептів за кількістю різних користувачів, які додали їх в обране. Далі createdAt DESC, id DESC. Query-параметри не приймаються.",
+        "responses": {
+          "200": {
+            "description": "До чотирьох карток",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "maxItems": 4,
+                      "items": {
+                        "$ref": "#/components/schemas/RecipeCard"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/api/recipes/own": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Власні рецепти",
+        "operationId": "listOwnRecipes",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Список і total містять тільки рецепти поточного користувача. Приймаються лише page та limit. Порядок createdAt DESC, id DESC.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Номер сторінки; зсув (page - 1) * limit не більше 2147483647.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Кількість рецептів на сторінці.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 9
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Власні рецепти та пагінація",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/api/recipes/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{24}$",
+            "example": "6462a8f74c3d0ddd28897fb8"
+          },
+          "description": "24 шістнадцяткові символи. Великі літери приймаються."
+        }
+      ],
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Деталі рецепта",
+        "operationId": "getRecipe",
+        "responses": {
+          "200": {
+            "description": "Рецепт з автором та інгредієнтами",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Видалити власний рецепт",
+        "operationId": "removeRecipe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Видаляє рецепт та зв’язки з інгредієнтами й обраним. Довідник інгредієнтів і користувачі залишаються. Повторне видалення повертає 404. Фото, завантажене цим API, також видаляється з Cloudinary. Якщо сервіс зображень недоступний, рецепт залишається видаленим, а public ID фото записується в журнал для повторного очищення.",
+        "responses": {
+          "204": {
+            "description": "Рецепт видалено, тіло відсутнє"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Owner": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "avatar"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{24}$",
+            "example": "6462a8f74c3d0ddd28897fb8"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatar": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          }
+        }
+      },
+      "RecipeCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "thumb",
+          "category",
+          "area",
+          "time",
+          "createdAt",
+          "owner"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{24}$",
+            "example": "6462a8f74c3d0ddd28897fb8"
+          },
+          "title": {
+            "type": "string",
+            "example": "Salmon salad"
+          },
+          "description": {
+            "type": "string",
+            "example": "Salmon with vegetables"
+          },
+          "thumb": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://example.com/recipe.jpg"
+          },
+          "category": {
+            "type": "string",
+            "example": "Seafood"
+          },
+          "area": {
+            "type": "string",
+            "example": "Greek"
+          },
+          "time": {
+            "type": "integer",
+            "example": 30
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/Owner"
+          }
+        }
+      },
+      "RecipeIngredient": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "img",
+          "measure"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{24}$",
+            "example": "6462a8f74c3d0ddd28897fb8"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "img": {
+            "type": "string",
+            "nullable": true
+          },
+          "measure": {
+            "type": "string",
+            "example": "100 g"
+          }
+        }
+      },
+      "Recipe": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RecipeCard"
+          },
+          {
+            "type": "object",
+            "required": [
+              "instructions",
+              "ingredients"
+            ],
+            "properties": {
+              "instructions": {
+                "type": "string",
+                "example": "Cook the salmon and mix with vegetables."
+              },
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/RecipeIngredient"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Pagination": {
+        "type": "object",
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "RecipeList": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeCard"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "RecipeResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Recipe"
+          }
+        }
+      },
+      "CreateRecipeForm": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "photo",
+          "title",
+          "description",
+          "category",
+          "area",
+          "time",
+          "instructions",
+          "ingredients"
+        ],
+        "properties": {
+          "photo": {
+            "type": "string",
+            "format": "binary",
+            "description": "Один JPEG, PNG або WebP до 5 МіБ. Формат перевіряється за MIME та сигнатурою."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "example": "Salmon salad"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Salmon with vegetables"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Назва наявної категорії",
+            "example": "Seafood"
+          },
+          "area": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Назва наявного регіону",
+            "example": "Greek"
+          },
+          "time": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "example": 30
+          },
+          "instructions": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "example": "Cook the salmon and mix with vegetables."
+          },
+          "ingredients": {
+            "type": "string",
+            "description": "JSON-масив {ingredientId, measure}. Щонайменше один наявний інгредієнт, без повторів; measure від 1 до 100 символів.",
+            "example": "[{\"ingredientId\":\"640c2dd963a319ea671e365c\",\"measure\":\"100 g\"}]"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "message"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "400": {
+        "description": "Некоректні параметри або поля форми",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "Invalid recipe data",
+              "errors": [
+                {
+                  "field": "ingredients.0.ingredientId",
+                  "message": "Ingredient does not exist"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "401": {
+        "description": "Потрібна авторизація або токен недійсний",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "Invalid or expired token"
+            }
+          }
+        }
+      },
+      "403": {
+        "description": "Не можна видаляти чужий рецепт",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "You can only delete your own recipes"
+            }
+          }
+        }
+      },
+      "404": {
+        "description": "Рецепт не знайдено",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "Recipe not found"
+            }
+          }
+        }
+      },
+      "413": {
+        "description": "Фото перевищує 5 МіБ",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "Photo must not exceed 5 MiB"
+            }
+          }
+        }
+      },
+      "415": {
+        "description": "Потрібен multipart/form-data",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "Use multipart/form-data"
+            }
+          }
+        }
+      },
+      "500": {
+        "description": "Внутрішня помилка сервера",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "Internal Server Error"
+            }
+          }
+        }
+      },
+      "502": {
+        "description": "Сервіс зображень недоступний",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "success": false,
+              "message": "Internal Server Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -4,10 +4,10 @@ interface UploadOptions {
   folder: string;
 }
 
-export const uploadToCloudinary = async (
+export const uploadImageToCloudinary = async (
   file: Express.Multer.File,
   options: UploadOptions,
-): Promise<string> => {
+): Promise<{ url: string; publicId: string }> => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -20,10 +20,23 @@ export const uploadToCloudinary = async (
           return;
         }
 
-        resolve(result.secure_url);
+        resolve({ url: result.secure_url, publicId: result.public_id });
       },
     );
 
+    uploadStream.on("error", reject);
     uploadStream.end(file.buffer);
   });
+};
+
+export const uploadToCloudinary = async (file: Express.Multer.File, options: UploadOptions) => {
+  const image = await uploadImageToCloudinary(file, options);
+  return image.url;
+};
+
+export const deleteImageFromCloudinary = async (publicId: string) => {
+  const result = await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  if (result.result !== "ok" && result.result !== "not found") {
+    throw new Error("Image deletion failed");
+  }
 };
