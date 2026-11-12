@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import authRouter from "./routes/authRoutes.ts";
+import userRouter from "./routes/userRoutes.ts";
 
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 import recipeRoutes from "./routes/recipeRoutes.js";
@@ -17,7 +19,9 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(Object.assign(new Error("CORS: Origin not allowed"), { status: 403 }));
+      return callback(
+        Object.assign(new Error("CORS: Origin not allowed"), { status: 403 }),
+      );
     },
     credentials: true,
   }),
@@ -32,6 +36,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/auth", authRouter);
+app.use("/users", userRouter);
 app.use("/api/recipes", recipeRoutes);
 
 app.use(notFound);
