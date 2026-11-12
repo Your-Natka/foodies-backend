@@ -8,6 +8,10 @@ import openApi from "../docs/openapi.json" with { type: "json" };
 import authRouter from "./routes/authRoutes.ts";
 import userRouter from "./routes/userRoutes.ts";
 import recipeRoutes from "./routes/recipeRoutes.ts";
+import categoryRoutes from "./routes/categoryRoutes.ts";
+import areaRoutes from "./routes/areaRoutes.ts";
+import ingredientRoutes from "./routes/ingredientRoutes.ts";
+import testimonialRoutes from "./routes/testimonialRoutes.ts";
 
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
@@ -52,11 +56,19 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/recipes", recipeRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/areas", areaRoutes);
+app.use("/api/ingredients", ingredientRoutes);
+app.use("/api/testimonials", testimonialRoutes);
 app.get("/api-docs/openapi.json", (_req, res) => res.json(openApi));
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApi, {
-  customSiteTitle: "Foodies Recipes API",
-  swaggerOptions: { persistAuthorization: false },
-}));
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(openApi, {
+    customSiteTitle: "Foodies Recipes API",
+    swaggerOptions: { persistAuthorization: false },
+  }),
+);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,0 +1,145 @@
+openapi: 3.0.3
+info:
+  title: Foodies Reference Data API
+  version: 1.0.0
+servers:
+  - url: /api
+paths:
+  /categories:
+    get:
+      summary: List categories
+      description: Sorted by name, then by ID.
+      operationId: listCategories
+      responses:
+        '200':
+          description: Category list. The data array may be empty.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NamedReference'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /areas:
+    get:
+      summary: List areas
+      description: Sorted by name, then by ID.
+      operationId: listAreas
+      responses:
+        '200':
+          description: Area list. The data array may be empty.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NamedReference'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /ingredients:
+    get:
+      summary: List ingredients
+      description: Sorted by name, then by ID. Ingredients with a null name come last.
+      operationId: listIngredients
+      responses:
+        '200':
+          description: Ingredient list. The data array may be empty.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Ingredient'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /testimonials:
+    get:
+      summary: List testimonials
+      description: Sorted by ID. Each owner contains the public ID and name.
+      operationId: listTestimonials
+      responses:
+        '200':
+          description: Testimonial list. The data array may be empty.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Testimonial'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  schemas:
+    Id:
+      type: string
+      pattern: '^[0-9a-fA-F]{24}$'
+      example: '100000000000000000000001'
+    NamedReference:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          example: Olena
+    Ingredient:
+      type: object
+      additionalProperties: false
+      required: [id, name, img]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          nullable: true
+          example: Apple
+        img:
+          type: string
+          nullable: true
+          example: https://example.com/apple.png
+    Testimonial:
+      type: object
+      additionalProperties: false
+      required: [id, testimonial, owner]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        testimonial:
+          type: string
+          example: Great recipes!
+        owner:
+          $ref: '#/components/schemas/NamedReference'
+  responses:
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [success, message]
+            properties:
+              success:
+                type: boolean
+                enum: [false]
+              message:
+                type: string
+                example: Internal Server Error
