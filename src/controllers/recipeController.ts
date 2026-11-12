@@ -1,11 +1,33 @@
 import type { Request, Response } from "express";
 import {
+  createRecipe,
   deleteOwnRecipe,
   getPopularRecipes,
   getRecipeById,
   getRecipes,
 } from "../services/recipeService.js";
 import { parseRecipeId, parseRecipeQuery } from "../validators/recipeValidator.js";
+import { createRecipeSchema } from "../validators/createRecipeValidator.js";
+
+export const addRecipe = async (req: Request, res: Response) => {
+  const result = createRecipeSchema.safeParse(req.body);
+  if (!result.success) {
+    const errors = result.error.issues.flatMap((issue) => {
+      if (issue.code === "unrecognized_keys") {
+        return issue.keys.map((key) => ({
+          field: [...issue.path, key].join("."),
+          message: "Unknown field",
+        }));
+      }
+      return [{ field: issue.path.join(".") || "body", message: issue.message }];
+    });
+    res.status(400).json({ success: false, message: "Invalid recipe data", errors });
+    return;
+  }
+
+  const recipe = await createRecipe(result.data, req.user!.sub, req.file!);
+  res.status(201).json({ data: recipe });
+};
 
 export const listRecipes = async (req: Request, res: Response) => {
   const { query, errors } = parseRecipeQuery(req.query);

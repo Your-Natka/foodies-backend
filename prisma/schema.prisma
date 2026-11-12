@@ -64,6 +64,7 @@ model Recipe {
   instructions String @db.Text
   description  String @db.Text
   thumb        String @db.Text
+  photoPublicId String? @map("photo_public_id") @db.Text
   preview      String? @db.Text
   time         Int
 

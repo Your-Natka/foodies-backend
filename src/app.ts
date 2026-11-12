@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import swaggerUi from "swagger-ui-express";
+import openApi from "../docs/openapi.json" with { type: "json" };
 
 import authRouter from "./routes/authRoutes.ts";
 import userRouter from "./routes/userRoutes.ts";
@@ -50,6 +52,11 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/recipes", recipeRoutes);
+app.get("/api-docs/openapi.json", (_req, res) => res.json(openApi));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApi, {
+  customSiteTitle: "Foodies Recipes API",
+  swaggerOptions: { persistAuthorization: false },
+}));
 
 app.use(notFound);
 app.use(errorHandler);

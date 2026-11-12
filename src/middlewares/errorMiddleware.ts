@@ -30,6 +30,7 @@ const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message,
+    ...(statusCode < 500 && Array.isArray(error.errors) ? { errors: error.errors } : {}),
   });
 };
 
