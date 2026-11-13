@@ -28,7 +28,7 @@ npm run dev
 
 `POST /recipes` створює рецепт і повертає 201 з його ID та деталями. Потрібні access token, multipart/form-data з фото та поля з [контракту](docs/api.md#post-apirecipes). Для фото заповніть `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` у `.env`. Приймаються JPEG, PNG і WebP до 5 МіБ.
 
-Swagger UI для рецептів і підписок доступний на `/docs/`, схема на `/docs/openapi.json`. У Swagger можна передати access token через Authorize та перевірити запити. Маршрути обраного ще належать до BE-04 і тут не описані як готові.
+Swagger UI для рецептів і підписок доступний на `/docs/`, схема на `/docs/openapi.json`. У Swagger можна передати access token через Authorize та перевірити запити. Обране: GET `/recipes/favorites` з page/limit, PUT і DELETE `/recipes/:id/favorite`. Потрібен access token. Повторний PUT повертає 200 замість 201, DELETE завжди 204. Каталог і деталі містять персональний `isFavorite`, для гостя false.
 
 Після оновлення застосуйте міграції та згенеруйте Prisma Client. Міграція `20261112121718_add_recipe_photo_public_id` додає nullable public ID для видалення завантажених фото; початкові зовнішні фото не змінюються.
 

@@ -41,7 +41,7 @@ export const listRecipes = async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await getRecipes(query);
+  const result = await getRecipes(query, req.user?.sub);
   res.status(200).json(result);
 };
 
@@ -53,7 +53,7 @@ export const listOwnRecipes = async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await getRecipes({ ...query, ownerId: req.user!.sub });
+  const result = await getRecipes({ ...query, ownerId: req.user!.sub }, req.user!.sub);
   res.set("Cache-Control", "private, no-store");
   res.status(200).json(result);
 };
@@ -85,7 +85,7 @@ export const getRecipe = async (req: Request, res: Response) => {
     return;
   }
 
-  const recipe = await getRecipeById(id);
+  const recipe = await getRecipeById(id, req.user?.sub);
   if (!recipe) {
     res.status(404).json({ success: false, message: "Recipe not found" });
     return;
@@ -105,6 +105,6 @@ export const listPopularRecipes = async (req: Request, res: Response) => {
     return;
   }
 
-  const data = await getPopularRecipes();
+  const data = await getPopularRecipes(req.user?.sub);
   res.status(200).json({ data });
 };

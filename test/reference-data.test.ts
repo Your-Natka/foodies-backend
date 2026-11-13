@@ -48,7 +48,7 @@ before(async () => {
   await once(server, "listening");
   const address = server.address();
   assert.ok(address && typeof address === "object");
-  baseUrl = `http://127.0.0.1:${address.port}/api`;
+  baseUrl = `http://127.0.0.1:${address.port}`;
 }, { timeout: 45000 });
 
 after(async () => {

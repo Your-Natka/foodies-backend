@@ -17,6 +17,16 @@ const recipeCardSelect = {
   owner: { select: { id: true, name: true, avatar: true } },
 } satisfies Prisma.RecipeSelect;
 
+const favoriteSelect = (userId = "") => ({
+  where: { userId },
+  select: { recipeId: true },
+});
+
+const withFavorite = <T extends { favorites: { recipeId: string }[] }>(recipe: T) => {
+  const { favorites, ...fields } = recipe;
+  return { ...fields, isFavorite: favorites.length > 0 };
+};
+
 const recipeDetailsSelect = {
   ...recipeCardSelect,
   instructions: true,
@@ -79,7 +89,7 @@ export const createRecipe = async (input: CreateRecipeInput, ownerId: string, fi
       },
       select: recipeDetailsSelect,
     });
-    return formatRecipe(recipe);
+    return { ...formatRecipe(recipe), isFavorite: false };
   } catch (error) {
     try {
       await deleteImageFromCloudinary(photo.publicId);
@@ -90,10 +100,14 @@ export const createRecipe = async (input: CreateRecipeInput, ownerId: string, fi
   }
 };
 
-export const getRecipes = async (query: RecipeQuery) => {
+export const getRecipes = async (query: RecipeQuery, viewerId?: string, favoritesOnly = false) => {
   const { page, limit, category, area, ingredientId, ownerId } = query;
   const where: Prisma.RecipeWhereInput = {};
 
+  if (favoritesOnly) {
+    if (!viewerId) throw Object.assign(new Error("Access token is required"), { status: 401 });
+    where.favorites = { some: { userId: viewerId } };
+  }
   if (category) where.category = category;
   if (area) where.area = area;
   if (ownerId !== undefined) where.ownerId = ownerId;
@@ -105,23 +119,24 @@ export const getRecipes = async (query: RecipeQuery) => {
       skip: (page - 1) * limit,
       take: limit,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: recipeCardSelect,
+      select: { ...recipeCardSelect, favorites: favoriteSelect(viewerId) },
     }),
     prisma.recipe.count({ where }),
   ], { isolationLevel: "RepeatableRead" });
 
   return {
-    data,
+    data: data.map(withFavorite),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
 };
 
-export const getPopularRecipes = async () => {
-  return prisma.recipe.findMany({
+export const getPopularRecipes = async (viewerId?: string) => {
+  const recipes = await prisma.recipe.findMany({
     take: 4,
     orderBy: [{ favorites: { _count: "desc" } }, { createdAt: "desc" }, { id: "desc" }],
-    select: recipeCardSelect,
+    select: { ...recipeCardSelect, favorites: favoriteSelect(viewerId) },
   });
+  return recipes.map(withFavorite);
 };
 
 export const deleteOwnRecipe = async (id: string, ownerId: string) => {
@@ -145,13 +160,13 @@ export const deleteOwnRecipe = async (id: string, ownerId: string) => {
   return "deleted";
 };
 
-export const getRecipeById = async (id: string) => {
+export const getRecipeById = async (id: string, viewerId?: string) => {
   const recipe = await prisma.recipe.findUnique({
     where: { id },
-    select: recipeDetailsSelect,
+    select: { ...recipeDetailsSelect, favorites: favoriteSelect(viewerId) },
   });
 
   if (!recipe) return null;
 
-  return formatRecipe(recipe);
+  return withFavorite({ ...formatRecipe(recipe), favorites: recipe.favorites });
 };
