@@ -50,7 +50,7 @@ const publicUserSelect = {
   createdAt: true,
 } as const;
 
-// POST /api/auth/register
+// POST /auth/register
 export const register: RequestHandler = async (req, res) => {
   const { name, email, password } = req.body as RegisterInput;
 
@@ -104,7 +104,7 @@ export const register: RequestHandler = async (req, res) => {
   }
 };
 
-// POST /api/auth/login
+// POST /auth/login
 export const login: RequestHandler = async (req, res) => {
   const { email, password } = req.body as LoginInput;
 
@@ -149,7 +149,7 @@ export const login: RequestHandler = async (req, res) => {
   });
 };
 
-// POST /api/auth/refresh
+// POST /auth/refresh
 export const refresh: RequestHandler = async (req, res) => {
   const refreshToken = getRefreshTokenFromCookie(req);
 
@@ -264,7 +264,7 @@ export const refresh: RequestHandler = async (req, res) => {
   });
 };
 
-// POST /api/auth/logout
+// POST /auth/logout
 export const logout: RequestHandler = async (req, res) => {
   const userId = req.user!.sub;
 

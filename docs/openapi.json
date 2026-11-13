@@ -3,14 +3,17 @@
   "info": {
     "title": "Foodies API",
     "version": "1.0.0",
-    "description": "Каталог, деталі, популярні та власні рецепти, створення з фото й видалення, а також підписки користувачів. Для приватних маршрутів використовуйте accessToken з POST /api/auth/login або /api/auth/register. Операції обраного ще не реалізовані."
+    "description": "Foodies API — це RESTful API для платформи обміну рецептами. Він підтримує автентифікацію користувачів, керування рецептами, додавання рецептів до обраного, підписку на інших користувачів, а також пошук за категоріями, регіонами та інгредієнтами."
   },
-  "servers": [
-    {
-      "url": "/"
-    }
-  ],
   "tags": [
+    {
+      "name": "Auth",
+      "description": "Реєстрація, авторизація та керування сесією користувача"
+    },
+    {
+      "name": "Users",
+      "description": "Профілі користувачів та керування аватаром"
+    },
     {
       "name": "Recipes",
       "description": "Рецепти"
@@ -21,11 +24,370 @@
     }
   ],
   "paths": {
-    "/api/recipes": {
-      "get": {
-        "tags": [
-          "Recipes"
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Реєстрація користувача",
+        "description": "Створює обліковий запис користувача та повертає access token. Refresh token встановлюється в HTTP-only cookie.",
+        "operationId": "register",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jane@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "StrongPassword123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Користувача успішно зареєстровано"
+          },
+          "409": {
+            "description": "Користувач із такою електронною поштою вже існує"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Авторизація користувача",
+        "description": "Перевіряє облікові дані та повертає access token. Refresh token встановлюється в HTTP-only cookie.",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jane@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "StrongPassword123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Успішна авторизація"
+          },
+          "401": {
+            "description": "Невірна електронна пошта або пароль"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Оновлення access token",
+        "description": "Використовує refresh token із cookie для створення нової пари токенів.",
+        "operationId": "refresh",
+        "responses": {
+          "200": {
+            "description": "Access token успішно оновлено"
+          },
+          "401": {
+            "description": "Refresh token відсутній, недійсний, прострочений або відкликаний"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Вихід із системи",
+        "description": "Відкликає refresh token поточного користувача та очищає cookie.",
+        "operationId": "logout",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ],
+        "responses": {
+          "204": {
+            "description": "Успішний вихід із системи"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    },
+    "/users/current": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Профіль поточного користувача",
+        "description": "Повертає профіль авторизованого користувача, кількість рецептів, обраного, підписників і підписок, а також список його рецептів.",
+        "operationId": "getCurrentUser",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Профіль користувача успішно отримано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "6462a8f74c3d0ddd28897fb8"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "Jane Doe"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email",
+                      "example": "jane@example.com"
+                    },
+                    "avatar": {
+                      "type": "string",
+                      "nullable": true,
+                      "example": "https://example.com/avatar.jpg"
+                    },
+                    "recipesCount": {
+                      "type": "integer",
+                      "example": 12
+                    },
+                    "favoritesCount": {
+                      "type": "integer",
+                      "example": 5
+                    },
+                    "followersCount": {
+                      "type": "integer",
+                      "example": 8
+                    },
+                    "followingCount": {
+                      "type": "integer",
+                      "example": 10
+                    },
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UserRecipe"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "description": "Користувача не знайдено"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Профіль користувача за ID",
+        "description": "Повертає публічний профіль користувача, кількість його рецептів і підписників, статус підписки поточного користувача та список рецептів.",
+        "operationId": "getUserById",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "ID користувача",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$",
+              "example": "6462a8f74c3d0ddd28897fb8"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Профіль користувача успішно отримано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "avatar": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "recipesCount": {
+                      "type": "integer"
+                    },
+                    "followersCount": {
+                      "type": "integer"
+                    },
+                    "isFollowing": {
+                      "type": "boolean"
+                    },
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UserRecipe"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "description": "Користувача не знайдено"
+          }
+        }
+      }
+    },
+    "/users/current/avatar": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Оновити аватар користувача",
+        "description": "Завантажує новий аватар користувача до Cloudinary та оновлює посилання на нього в профілі.",
+        "operationId": "updateAvatar",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["avatar"],
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Файл нового аватара"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Аватар успішно оновлено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["message", "user"],
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Avatar updated successfully"
+                    },
+                    "user": {
+                      "type": "object",
+                      "required": ["id", "name", "email", "avatar"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "6462a8f74c3d0ddd28897fb8"
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "Jane Doe"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email",
+                          "example": "jane@example.com"
+                        },
+                        "avatar": {
+                          "type": "string",
+                          "format": "uri",
+                          "example": "https://example.com/avatar.jpg"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Файл аватара не передано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Avatar file is required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    },
+    "/recipes": {
+      "get": {
+        "tags": ["Recipes"],
         "summary": "Каталог рецептів",
         "operationId": "listRecipes",
         "description": "Фільтри діють разом. Порядок createdAt DESC, id DESC. Порожні фільтри ігноруються; невідомі та повторні параметри повертають 400.",
@@ -117,9 +479,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Recipes"
-        ],
+        "tags": ["Recipes"],
         "summary": "Створити власний рецепт",
         "operationId": "addRecipe",
         "security": [
@@ -170,11 +530,9 @@
         }
       }
     },
-    "/api/recipes/popular": {
+    "/recipes/popular": {
       "get": {
-        "tags": [
-          "Recipes"
-        ],
+        "tags": ["Recipes"],
         "summary": "Популярні рецепти",
         "operationId": "listPopularRecipes",
         "description": "До чотирьох рецептів за кількістю різних користувачів, які додали їх в обране. Далі createdAt DESC, id DESC. Query-параметри не приймаються.",
@@ -185,9 +543,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "data"
-                  ],
+                  "required": ["data"],
                   "properties": {
                     "data": {
                       "type": "array",
@@ -210,11 +566,9 @@
         }
       }
     },
-    "/api/recipes/own": {
+    "/recipes/own": {
       "get": {
-        "tags": [
-          "Recipes"
-        ],
+        "tags": ["Recipes"],
         "summary": "Власні рецепти",
         "operationId": "listOwnRecipes",
         "security": [
@@ -272,7 +626,7 @@
         }
       }
     },
-    "/api/recipes/{id}": {
+    "/recipes/{id}": {
       "parameters": [
         {
           "name": "id",
@@ -287,9 +641,7 @@
         }
       ],
       "get": {
-        "tags": [
-          "Recipes"
-        ],
+        "tags": ["Recipes"],
         "summary": "Деталі рецепта",
         "operationId": "getRecipe",
         "responses": {
@@ -315,9 +667,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Recipes"
-        ],
+        "tags": ["Recipes"],
         "summary": "Видалити власний рецепт",
         "operationId": "removeRecipe",
         "security": [
@@ -348,16 +698,14 @@
         }
       }
     },
-    "/api/users/{id}/followers": {
+    "/users/{id}/followers": {
       "parameters": [
         {
           "$ref": "#/components/parameters/FollowUserId"
         }
       ],
       "get": {
-        "tags": [
-          "Follows"
-        ],
+        "tags": ["Follows"],
         "summary": "Підписники профілю",
         "operationId": "listFollowers",
         "security": [
@@ -400,11 +748,9 @@
         }
       }
     },
-    "/api/users/following": {
+    "/users/following": {
       "get": {
-        "tags": [
-          "Follows"
-        ],
+        "tags": ["Follows"],
         "summary": "Мої підписки",
         "operationId": "listFollowing",
         "security": [
@@ -447,16 +793,14 @@
         }
       }
     },
-    "/api/users/{id}/follow": {
+    "/users/{id}/follow": {
       "parameters": [
         {
           "$ref": "#/components/parameters/FollowUserId"
         }
       ],
       "put": {
-        "tags": [
-          "Follows"
-        ],
+        "tags": ["Follows"],
         "summary": "Підписатися на користувача",
         "operationId": "followUser",
         "security": [
@@ -501,9 +845,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Follows"
-        ],
+        "tags": ["Follows"],
         "summary": "Відписатися від користувача",
         "operationId": "unfollowUser",
         "security": [
@@ -543,11 +885,7 @@
     "schemas": {
       "Owner": {
         "type": "object",
-        "required": [
-          "id",
-          "name",
-          "avatar"
-        ],
+        "required": ["id", "name", "avatar"],
         "properties": {
           "id": {
             "type": "string",
@@ -561,6 +899,28 @@
             "type": "string",
             "nullable": true,
             "example": null
+          }
+        }
+      },
+      "UserRecipe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "6462a8f74c3d0ddd28897fb8"
+          },
+          "title": {
+            "type": "string",
+            "example": "Salmon salad"
+          },
+          "description": {
+            "type": "string",
+            "example": "Salmon with fresh vegetables"
+          },
+          "thumb": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://example.com/recipe.jpg"
           }
         }
       },
@@ -619,12 +979,7 @@
       },
       "RecipeIngredient": {
         "type": "object",
-        "required": [
-          "id",
-          "name",
-          "img",
-          "measure"
-        ],
+        "required": ["id", "name", "img", "measure"],
         "properties": {
           "id": {
             "type": "string",
@@ -652,10 +1007,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "instructions",
-              "ingredients"
-            ],
+            "required": ["instructions", "ingredients"],
             "properties": {
               "instructions": {
                 "type": "string",
@@ -673,12 +1025,7 @@
       },
       "Pagination": {
         "type": "object",
-        "required": [
-          "page",
-          "limit",
-          "total",
-          "totalPages"
-        ],
+        "required": ["page", "limit", "total", "totalPages"],
         "properties": {
           "page": {
             "type": "integer",
@@ -700,10 +1047,7 @@
       },
       "RecipeList": {
         "type": "object",
-        "required": [
-          "data",
-          "pagination"
-        ],
+        "required": ["data", "pagination"],
         "properties": {
           "data": {
             "type": "array",
@@ -718,9 +1062,7 @@
       },
       "RecipeResponse": {
         "type": "object",
-        "required": [
-          "data"
-        ],
+        "required": ["data"],
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Recipe"
@@ -793,16 +1135,11 @@
       },
       "Error": {
         "type": "object",
-        "required": [
-          "success",
-          "message"
-        ],
+        "required": ["success", "message"],
         "properties": {
           "success": {
             "type": "boolean",
-            "enum": [
-              false
-            ]
+            "enum": [false]
           },
           "message": {
             "type": "string"
@@ -811,10 +1148,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "field",
-                "message"
-              ],
+              "required": ["field", "message"],
               "properties": {
                 "field": {
                   "type": "string"
@@ -862,10 +1196,7 @@
             "description": "Останні рецепти за createdAt DESC, id DESC.",
             "items": {
               "type": "object",
-              "required": [
-                "id",
-                "thumb"
-              ],
+              "required": ["id", "thumb"],
               "properties": {
                 "id": {
                   "type": "string",
@@ -881,10 +1212,7 @@
       },
       "FollowList": {
         "type": "object",
-        "required": [
-          "data",
-          "pagination"
-        ],
+        "required": ["data", "pagination"],
         "properties": {
           "data": {
             "type": "array",
@@ -899,16 +1227,11 @@
       },
       "FollowResponse": {
         "type": "object",
-        "required": [
-          "data"
-        ],
+        "required": ["data"],
         "properties": {
           "data": {
             "type": "object",
-            "required": [
-              "userId",
-              "isFollowing"
-            ],
+            "required": ["userId", "isFollowing"],
             "properties": {
               "userId": {
                 "type": "string",
@@ -916,9 +1239,7 @@
               },
               "isFollowing": {
                 "type": "boolean",
-                "enum": [
-                  true
-                ]
+                "enum": [true]
               }
             }
           }

@@ -12,7 +12,8 @@ import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import SwaggerParser from "@apidevtools/swagger-parser";
 
-if (!process.env.TEST_DATABASE_URL) throw new Error("Set TEST_DATABASE_URL to run PostgreSQL integration tests");
+if (!process.env.TEST_DATABASE_URL)
+  throw new Error("Set TEST_DATABASE_URL to run PostgreSQL integration tests");
 const databaseName = `foodies_test_${randomUUID().replaceAll("-", "")}`;
 const databaseUrl = new URL(process.env.TEST_DATABASE_URL);
 const admin = new pg.Client({ connectionString: databaseUrl.href });
@@ -34,76 +35,130 @@ let afterUpload: (() => Promise<void>) | undefined;
 const uploads: { publicId: string; bytes: Buffer; folder: string }[] = [];
 const deletions: string[] = [];
 const ingredientId = "20000000000000000000000a";
-const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jN3sAAAAASUVORK5CYII=", "base64");
+const image = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jN3sAAAAASUVORK5CYII=",
+  "base64",
+);
 
-before(async () => {
-  await admin.connect();
-  await admin.query(`CREATE DATABASE "${databaseName}"`);
-  databaseCreated = true;
-  const migration = spawnSync(process.execPath, [
-    fileURLToPath(new URL("../node_modules/prisma/build/index.js", import.meta.url)), "migrate", "deploy",
-  ], {
-    env: { ...process.env, DIRECT_URL: databaseUrl.href },
-    encoding: "utf8",
-    timeout: 30000,
-  });
-  assert.equal(migration.status, 0, migration.stdout + migration.stderr);
-  prisma = (await import("../prisma/client.ts")).default;
-  await prisma.category.create({ data: { id: "300000000000000000000001", name: "Seafood" } });
-  await prisma.area.create({ data: { id: "400000000000000000000001", name: "Greek" } });
-  await prisma.ingredient.create({ data: { id: ingredientId, name: "Salmon" } });
-
-  mock.method(cloudinary.uploader, "upload_stream", (options: { folder: string }, callback: (error?: Error, result?: { public_id: string; secure_url: string }) => void) => {
-    const chunks: Buffer[] = [];
-    return new Writable({
-      write(chunk, _encoding, done) { chunks.push(Buffer.from(chunk)); done(); },
-      final(done) {
-        const publicId = `foodies/recipes/${randomUUID()}`;
-        if (uploadFailure) {
-          callback(new Error("Upload unavailable"));
-          done();
-          return;
-        }
-        uploads.push({ publicId, bytes: Buffer.concat(chunks), folder: options.folder });
-        Promise.resolve(afterUpload?.()).then(() => {
-          callback(undefined, { public_id: publicId, secure_url: `https://example.com/${publicId}.png` });
-          done();
-        }).catch(done);
+before(
+  async () => {
+    await admin.connect();
+    await admin.query(`CREATE DATABASE "${databaseName}"`);
+    databaseCreated = true;
+    const migration = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL("../node_modules/prisma/build/index.js", import.meta.url),
+        ),
+        "migrate",
+        "deploy",
+      ],
+      {
+        env: { ...process.env, DIRECT_URL: databaseUrl.href },
+        encoding: "utf8",
+        timeout: 30000,
       },
+    );
+    assert.equal(migration.status, 0, migration.stdout + migration.stderr);
+    prisma = (await import("../prisma/client.ts")).default;
+    await prisma.category.create({
+      data: { id: "300000000000000000000001", name: "Seafood" },
     });
-  });
-  mock.method(cloudinary.uploader, "destroy", async (publicId: string) => {
-    deletions.push(publicId);
-    if (deleteFailure) throw new Error("Delete unavailable");
-    return { result: "ok" };
-  });
+    await prisma.area.create({
+      data: { id: "400000000000000000000001", name: "Greek" },
+    });
+    await prisma.ingredient.create({
+      data: { id: ingredientId, name: "Salmon" },
+    });
 
-  const app = (await import("../src/app.ts")).default;
-  server = app.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
-  baseUrl = `http://127.0.0.1:${address.port}`;
-  const register = async (email: string) => {
-    const response = await fetch(`${baseUrl}/api/auth/register`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Recipe author", email, password: "TestPassword123!" }),
+    mock.method(
+      cloudinary.uploader,
+      "upload_stream",
+      (
+        options: { folder: string },
+        callback: (
+          error?: Error,
+          result?: { public_id: string; secure_url: string },
+        ) => void,
+      ) => {
+        const chunks: Buffer[] = [];
+        return new Writable({
+          write(chunk, _encoding, done) {
+            chunks.push(Buffer.from(chunk));
+            done();
+          },
+          final(done) {
+            const publicId = `foodies/recipes/${randomUUID()}`;
+            if (uploadFailure) {
+              callback(new Error("Upload unavailable"));
+              done();
+              return;
+            }
+            uploads.push({
+              publicId,
+              bytes: Buffer.concat(chunks),
+              folder: options.folder,
+            });
+            Promise.resolve(afterUpload?.())
+              .then(() => {
+                callback(undefined, {
+                  public_id: publicId,
+                  secure_url: `https://example.com/${publicId}.png`,
+                });
+                done();
+              })
+              .catch(done);
+          },
+        });
+      },
+    );
+    mock.method(cloudinary.uploader, "destroy", async (publicId: string) => {
+      deletions.push(publicId);
+      if (deleteFailure) throw new Error("Delete unavailable");
+      return { result: "ok" };
     });
-    assert.equal(response.status, 201);
-    return await response.json() as { user: { id: string }; accessToken: string };
-  };
-  const author = await register("author@example.com");
-  ownerId = author.user.id;
-  const login = await fetch(`${baseUrl}/api/auth/login`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "author@example.com", password: "TestPassword123!" }),
-  });
-  assert.equal(login.status, 200);
-  accessToken = (await login.json() as { accessToken: string }).accessToken;
-  const other = await register("other@example.com");
-  otherToken = other.accessToken;
-  otherId = other.user.id;
-}, { timeout: 45000 });
+
+    const app = (await import("../src/app.ts")).default;
+    server = app.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    baseUrl = `http://127.0.0.1:${address.port}`;
+    const register = async (email: string) => {
+      const response = await fetch(`${baseUrl}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Recipe author",
+          email,
+          password: "TestPassword123!",
+        }),
+      });
+      assert.equal(response.status, 201);
+      return (await response.json()) as {
+        user: { id: string };
+        accessToken: string;
+      };
+    };
+    const author = await register("author@example.com");
+    ownerId = author.user.id;
+    const login = await fetch(`${baseUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "author@example.com",
+        password: "TestPassword123!",
+      }),
+    });
+    assert.equal(login.status, 200);
+    accessToken = ((await login.json()) as { accessToken: string }).accessToken;
+    const other = await register("other@example.com");
+    otherToken = other.accessToken;
+    otherId = other.user.id;
+  },
+  { timeout: 45000 },
+);
 
 beforeEach(async () => {
   await prisma.recipe.deleteMany();
@@ -115,50 +170,86 @@ beforeEach(async () => {
 });
 
 after(async () => {
-  if (server) await new Promise<void>((resolve, reject) => server!.close((error) => error ? reject(error) : resolve()));
+  if (server)
+    await new Promise<void>((resolve, reject) =>
+      server!.close((error) => (error ? reject(error) : resolve())),
+    );
   mock.restoreAll();
   if (prisma) await prisma.$disconnect();
   try {
     if (databaseCreated) await admin.query(`DROP DATABASE "${databaseName}"`);
-  } finally { await admin.end(); }
+  } finally {
+    await admin.end();
+  }
 });
 
-const form = (changes: Record<string, string> = {}, photo: Blob | null = new Blob([image], { type: "image/png" })) => {
+const form = (
+  changes: Record<string, string> = {},
+  photo: Blob | null = new Blob([image], { type: "image/png" }),
+) => {
   const data = new FormData();
   const fields = {
-    title: " Salmon salad ", description: "Salmon with vegetables", category: "Seafood", area: "Greek",
-    time: "30", instructions: "Cook the salmon.", ingredients: JSON.stringify([{ ingredientId, measure: " 100 g " }]),
+    title: " Salmon salad ",
+    description: "Salmon with vegetables",
+    category: "Seafood",
+    area: "Greek",
+    time: "30",
+    instructions: "Cook the salmon.",
+    ingredients: JSON.stringify([{ ingredientId, measure: " 100 g " }]),
     ...changes,
   };
   for (const [key, value] of Object.entries(fields)) data.append(key, value);
   if (photo) data.append("photo", photo, "recipe.png");
   return data;
 };
-const create = (body = form(), token: string | null = accessToken) => fetch(`${baseUrl}/api/recipes`, {
-  method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body,
-});
-const remove = (id: string, token = accessToken) => fetch(`${baseUrl}/api/recipes/${id}`, {
-  method: "DELETE", headers: { Authorization: `Bearer ${token}` },
-});
+const create = (body = form(), token: string | null = accessToken) =>
+  fetch(`${baseUrl}/recipes`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body,
+  });
+const remove = (id: string, token = accessToken) =>
+  fetch(`${baseUrl}/recipes/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
 test("вхід, створення, свої рецепти та видалення працюють разом", async () => {
   const response = await create();
   assert.equal(response.status, 201);
-  const { data } = await response.json() as { data: { id: string; title: string; owner: { id: string }; ingredients: unknown[] } };
+  const { data } = (await response.json()) as {
+    data: {
+      id: string;
+      title: string;
+      owner: { id: string };
+      ingredients: unknown[];
+    };
+  };
   assert.match(data.id, /^[a-f\d]{24}$/);
   assert.equal(data.title, "Salmon salad");
   assert.equal(data.owner.id, ownerId);
-  assert.deepEqual(data.ingredients, [{ id: ingredientId, name: "Salmon", img: null, measure: "100 g" }]);
+  assert.deepEqual(data.ingredients, [
+    { id: ingredientId, name: "Salmon", img: null, measure: "100 g" },
+  ]);
   assert.ok(!("photoPublicId" in data));
   assert.equal(uploads[0].folder, "foodies/recipes");
   assert.deepEqual(uploads[0].bytes, image);
-  const stored = await prisma.recipe.findUniqueOrThrow({ where: { id: data.id } });
+  const stored = await prisma.recipe.findUniqueOrThrow({
+    where: { id: data.id },
+  });
   assert.equal(stored.photoPublicId, uploads[0].publicId);
-  const details = await fetch(`${baseUrl}/api/recipes/${data.id}`);
+  const details = await fetch(`${baseUrl}/recipes/${data.id}`);
   assert.deepEqual(await details.json(), { data });
-  const own = await fetch(`${baseUrl}/api/recipes/own`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  assert.equal((await own.json() as { pagination: { total: number } }).pagination.total, 1);
-  await prisma.favorite.create({ data: { userId: otherId, recipeId: data.id } });
+  const own = await fetch(`${baseUrl}/recipes/own`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  assert.equal(
+    ((await own.json()) as { pagination: { total: number } }).pagination.total,
+    1,
+  );
+  await prisma.favorite.create({
+    data: { userId: otherId, recipeId: data.id },
+  });
   assert.equal((await remove(data.id, otherToken)).status, 403);
   assert.equal(deletions.length, 0);
   const deleted = await remove(data.id);
@@ -168,13 +259,24 @@ test("вхід, створення, свої рецепти та видален�
   assert.equal(await prisma.recipeIngredient.count(), 0);
   assert.equal(await prisma.favorite.count(), 0);
   assert.equal((await remove(data.id)).status, 404);
-  const profile = await fetch(`${baseUrl}/api/users/current`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  assert.equal((await profile.json() as { recipesCount: number }).recipesCount, 0);
+  const profile = await fetch(`${baseUrl}/users/current`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  assert.equal(
+    ((await profile.json()) as { recipesCount: number }).recipesCount,
+    0,
+  );
 });
 
 test("гість, прострочений токен і refresh не можуть створити рецепт", async () => {
-  for (const token of [null, "invalid", jwt.sign({ sub: ownerId, type: "access" }, process.env.JWT_SECRET!, { expiresIn: -1 }),
-    jwt.sign({ sub: ownerId, type: "refresh" }, process.env.JWT_SECRET!)]) {
+  for (const token of [
+    null,
+    "invalid",
+    jwt.sign({ sub: ownerId, type: "access" }, process.env.JWT_SECRET!, {
+      expiresIn: -1,
+    }),
+    jwt.sign({ sub: ownerId, type: "refresh" }, process.env.JWT_SECRET!),
+  ]) {
     assert.equal((await create(form(), token)).status, 401);
   }
   assert.equal(uploads.length, 0);
@@ -182,15 +284,23 @@ test("гість, прострочений токен і refresh не можут
 });
 
 test("створення приймає лише multipart/form-data", async () => {
-  const response = await fetch(`${baseUrl}/api/recipes`, {
-    method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: "{}",
+  const response = await fetch(`${baseUrl}/recipes`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: "{}",
   });
   assert.equal(response.status, 415);
   assert.equal(uploads.length, 0);
 });
 
 test("токен видаленого користувача не завантажує фото", async () => {
-  const token = jwt.sign({ sub: "f".repeat(24), type: "access" }, process.env.JWT_SECRET!);
+  const token = jwt.sign(
+    { sub: "f".repeat(24), type: "access" },
+    process.env.JWT_SECRET!,
+  );
   assert.equal((await create(form(), token)).status, 401);
   assert.equal(uploads.length, 0);
 });
@@ -198,35 +308,88 @@ test("токен видаленого користувача не заванта
 test("зміни завантаження фото зберігають роботу аватара", async () => {
   const body = new FormData();
   body.append("avatar", new Blob([image], { type: "image/png" }), "avatar.png");
-  const response = await fetch(`${baseUrl}/api/users/current/avatar`, {
-    method: "PATCH", headers: { Authorization: `Bearer ${accessToken}` }, body,
+  const response = await fetch(`${baseUrl}/users/current/avatar`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body,
   });
   assert.equal(response.status, 200);
-  const result = await response.json() as { user: { avatar: string } };
+  const result = (await response.json()) as { user: { avatar: string } };
   assert.equal(typeof result.user.avatar, "string");
   assert.equal(uploads[0].folder, "foodies/avatars");
-  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: ownerId } })).avatar, result.user.avatar);
+  assert.equal(
+    (await prisma.user.findUniqueOrThrow({ where: { id: ownerId } })).avatar,
+    result.user.avatar,
+  );
 });
 
 test("валідація форми відхиляє неправильні поля до завантаження фото", async (context) => {
   const cases: [Record<string, string>, string][] = [
-    [{ title: " " }, "title"], [{ title: "a".repeat(256) }, "title"],
-    [{ description: "a".repeat(201) }, "description"], [{ instructions: "a".repeat(1001) }, "instructions"],
-    [{ time: "0" }, "time"], [{ time: "1.5" }, "time"], [{ time: "1e2" }, "time"], [{ time: "2147483648" }, "time"],
-    [{ ingredients: "bad json" }, "ingredients"], [{ ingredients: "{}" }, "ingredients"], [{ ingredients: "[]" }, "ingredients"],
-    [{ ingredients: JSON.stringify([{ ingredientId: "bad", measure: "100 g" }]) }, "ingredients.0.ingredientId"],
-    [{ ingredients: JSON.stringify([{ ingredientId, measure: " " }]) }, "ingredients.0.measure"],
-    [{ ingredients: JSON.stringify([{ ingredientId, measure: "x".repeat(101) }]) }, "ingredients.0.measure"],
-    [{ ingredients: JSON.stringify([{ ingredientId, measure: "100 g", name: "Salmon" }]) }, "ingredients.0.name"],
-    [{ ingredients: JSON.stringify([{ ingredientId, measure: "1 g" }, { ingredientId: ingredientId.toUpperCase(), measure: "2 g" }]) }, "ingredients.1.ingredientId"],
-    [{ ownerId: otherId }, "ownerId"], [{ category: "Missing" }, "category"], [{ area: "Missing" }, "area"],
-    [{ ingredients: JSON.stringify([{ ingredientId: "f".repeat(24), measure: "1 g" }]) }, "ingredients.0.ingredientId"],
+    [{ title: " " }, "title"],
+    [{ title: "a".repeat(256) }, "title"],
+    [{ description: "a".repeat(201) }, "description"],
+    [{ instructions: "a".repeat(1001) }, "instructions"],
+    [{ time: "0" }, "time"],
+    [{ time: "1.5" }, "time"],
+    [{ time: "1e2" }, "time"],
+    [{ time: "2147483648" }, "time"],
+    [{ ingredients: "bad json" }, "ingredients"],
+    [{ ingredients: "{}" }, "ingredients"],
+    [{ ingredients: "[]" }, "ingredients"],
+    [
+      {
+        ingredients: JSON.stringify([
+          { ingredientId: "bad", measure: "100 g" },
+        ]),
+      },
+      "ingredients.0.ingredientId",
+    ],
+    [
+      { ingredients: JSON.stringify([{ ingredientId, measure: " " }]) },
+      "ingredients.0.measure",
+    ],
+    [
+      {
+        ingredients: JSON.stringify([
+          { ingredientId, measure: "x".repeat(101) },
+        ]),
+      },
+      "ingredients.0.measure",
+    ],
+    [
+      {
+        ingredients: JSON.stringify([
+          { ingredientId, measure: "100 g", name: "Salmon" },
+        ]),
+      },
+      "ingredients.0.name",
+    ],
+    [
+      {
+        ingredients: JSON.stringify([
+          { ingredientId, measure: "1 g" },
+          { ingredientId: ingredientId.toUpperCase(), measure: "2 g" },
+        ]),
+      },
+      "ingredients.1.ingredientId",
+    ],
+    [{ ownerId: otherId }, "ownerId"],
+    [{ category: "Missing" }, "category"],
+    [{ area: "Missing" }, "area"],
+    [
+      {
+        ingredients: JSON.stringify([
+          { ingredientId: "f".repeat(24), measure: "1 g" },
+        ]),
+      },
+      "ingredients.0.ingredientId",
+    ],
   ];
   for (const [changes, field] of cases) {
     await context.test(JSON.stringify(changes).slice(0, 75), async () => {
       const response = await create(form(changes));
       assert.equal(response.status, 400);
-      const body = await response.json() as { errors: { field: string }[] };
+      const body = (await response.json()) as { errors: { field: string }[] };
       assert.ok(body.errors.some((error) => error.field === field));
     });
   }
@@ -238,19 +401,39 @@ test("валідація форми відхиляє неправильні по
 });
 
 test("фото обов'язкове, має правильний формат, розмір і назву поля", async () => {
-  for (const photo of [null, new Blob([], { type: "image/png" }), new Blob(["fake"], { type: "image/png" }), new Blob([image], { type: "text/plain" })]) {
+  for (const photo of [
+    null,
+    new Blob([], { type: "image/png" }),
+    new Blob(["fake"], { type: "image/png" }),
+    new Blob([image], { type: "text/plain" }),
+  ]) {
     assert.equal((await create(form({}, photo))).status, 400);
   }
-  const oversized = new Blob([image, new Uint8Array(5 * 1024 * 1024)], { type: "image/png" });
+  const oversized = new Blob([image, new Uint8Array(5 * 1024 * 1024)], {
+    type: "image/png",
+  });
   assert.equal((await create(form({}, oversized))).status, 413);
   const wrongField = form({}, null);
-  wrongField.append("avatar", new Blob([image], { type: "image/png" }), "recipe.png");
+  wrongField.append(
+    "avatar",
+    new Blob([image], { type: "image/png" }),
+    "recipe.png",
+  );
   assert.equal((await create(wrongField)).status, 400);
   const repeated = form();
-  repeated.append("photo", new Blob([image], { type: "image/png" }), "another.png");
+  repeated.append(
+    "photo",
+    new Blob([image], { type: "image/png" }),
+    "another.png",
+  );
   assert.equal((await create(repeated)).status, 400);
-  const malformed = await fetch(`${baseUrl}/api/recipes`, {
-    method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "multipart/form-data" }, body: "bad form",
+  const malformed = await fetch(`${baseUrl}/recipes`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "multipart/form-data",
+    },
+    body: "bad form",
   });
   assert.equal(malformed.status, 400);
   assert.equal(uploads.length, 0);
@@ -260,37 +443,56 @@ test("помилка Cloudinary не створює рецепт", async () => {
   uploadFailure = true;
   const response = await create();
   assert.equal(response.status, 502);
-  assert.deepEqual(await response.json(), { success: false, message: "Internal Server Error" });
+  assert.deepEqual(await response.json(), {
+    success: false,
+    message: "Internal Server Error",
+  });
   assert.equal(await prisma.recipe.count(), 0);
 });
 
 test("помилка запису інгредієнтів відкочує рецепт і прибирає завантажене фото", async () => {
-  afterUpload = async () => { await prisma.ingredient.delete({ where: { id: ingredientId } }); };
+  afterUpload = async () => {
+    await prisma.ingredient.delete({ where: { id: ingredientId } });
+  };
   try {
     const response = await create();
     assert.equal(response.status, 500);
-    assert.deepEqual(await response.json(), { success: false, message: "Internal Server Error" });
+    assert.deepEqual(await response.json(), {
+      success: false,
+      message: "Internal Server Error",
+    });
     assert.equal(await prisma.recipe.count(), 0);
     assert.equal(await prisma.recipeIngredient.count(), 0);
     assert.deepEqual(deletions, [uploads[0].publicId]);
   } finally {
-    await prisma.ingredient.create({ data: { id: ingredientId, name: "Salmon" } });
+    await prisma.ingredient.create({
+      data: { id: ingredientId, name: "Salmon" },
+    });
   }
 });
 
 test("зовнішнє фото початкового рецепта не видаляється з Cloudinary", async () => {
   const id = "500000000000000000000001";
-  await prisma.recipe.create({ data: {
-    id, title: "Seed recipe", description: "Initial data", instructions: "Cook", thumb: "https://example.com/seed.jpg",
-    category: "Seafood", area: "Greek", time: 10, ownerId,
-  } });
+  await prisma.recipe.create({
+    data: {
+      id,
+      title: "Seed recipe",
+      description: "Initial data",
+      instructions: "Cook",
+      thumb: "https://example.com/seed.jpg",
+      category: "Seafood",
+      area: "Greek",
+      time: 10,
+      ownerId,
+    },
+  });
   assert.equal((await remove(id)).status, 204);
   assert.equal(deletions.length, 0);
 });
 
 test("одночасні запити видаляють рецепт і фото лише один раз", async () => {
   const response = await create();
-  const { data } = await response.json() as { data: { id: string } };
+  const { data } = (await response.json()) as { data: { id: string } };
   const results = await Promise.all([remove(data.id), remove(data.id)]);
   assert.deepEqual(results.map((result) => result.status).sort(), [204, 404]);
   assert.deepEqual(deletions, [uploads[0].publicId]);
@@ -298,7 +500,7 @@ test("одночасні запити видаляють рецепт і фот�
 
 test("збій видалення фото не повертає помилку для вже видаленого рецепта", async () => {
   const response = await create();
-  const { data } = await response.json() as { data: { id: string } };
+  const { data } = (await response.json()) as { data: { id: string } };
   deleteFailure = true;
   const log = mock.method(console, "error", () => {});
   try {
@@ -306,21 +508,33 @@ test("збій видалення фото не повертає помилку 
     assert.equal(await prisma.recipe.count(), 0);
     assert.equal(log.mock.calls.length, 1);
     assert.equal(log.mock.calls[0].arguments[1], uploads[0].publicId);
-  } finally { log.mock.restore(); }
+  } finally {
+    log.mock.restore();
+  }
 });
 
 test("Swagger проходить перевірку OpenAPI і доступний через HTTP", async () => {
-  const schema = await SwaggerParser.validate(fileURLToPath(new URL("../docs/openapi.json", import.meta.url)));
+  const schema = await SwaggerParser.validate(
+    fileURLToPath(new URL("../docs/openapi.json", import.meta.url)),
+  );
   assert.equal(schema.info.title, "Foodies API");
-  assert.deepEqual(schema.paths?.["/api/users/{id}/followers"]?.get?.security, [{ bearerAuth: [] }]);
-  assert.deepEqual(schema.paths?.["/api/users/following"]?.get?.security, [{ bearerAuth: [] }]);
-  assert.deepEqual(schema.paths?.["/api/users/{id}/follow"]?.put?.security, [{ bearerAuth: [] }]);
-  assert.deepEqual(schema.paths?.["/api/users/{id}/follow"]?.delete?.security, [{ bearerAuth: [] }]);
-  assert.equal((await fetch(`${baseUrl}/api-docs/`)).status, 200);
-  const response = await fetch(`${baseUrl}/api-docs/openapi.json`);
+  assert.deepEqual(schema.paths?.["/users/{id}/followers"]?.get?.security, [
+    { bearerAuth: [] },
+  ]);
+  assert.deepEqual(schema.paths?.["/users/following"]?.get?.security, [
+    { bearerAuth: [] },
+  ]);
+  assert.deepEqual(schema.paths?.["/users/{id}/follow"]?.put?.security, [
+    { bearerAuth: [] },
+  ]);
+  assert.deepEqual(schema.paths?.["/users/{id}/follow"]?.delete?.security, [
+    { bearerAuth: [] },
+  ]);
+  assert.equal((await fetch(`${baseUrl}/docs/`)).status, 200);
+  const response = await fetch(`${baseUrl}/docs/openapi.json`);
   assert.equal(response.status, 200);
-  const spec = await response.json() as { paths: Record<string, unknown> };
-  assert.ok(spec.paths["/api/recipes"]);
-  assert.ok(spec.paths["/api/recipes/own"]);
-  assert.ok(spec.paths["/api/recipes/{id}"]);
+  const spec = (await response.json()) as { paths: Record<string, unknown> };
+  assert.ok(spec.paths["/recipes"]);
+  assert.ok(spec.paths["/recipes/own"]);
+  assert.ok(spec.paths["/recipes/{id}"]);
 });
