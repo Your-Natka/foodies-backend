@@ -124,6 +124,20 @@ after(async () => {
   }
 });
 
+// Перевіряє, що об'єкт містить усі очікувані поля зі значеннями.
+const assertFields = (actual: unknown, expected: Record<string, unknown>) => {
+  assert.ok(
+    actual !== null && typeof actual === "object" && !Array.isArray(actual),
+    "Expected response body to be an object",
+  );
+
+  const actualObject = actual as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(expected)) {
+    assert.deepEqual(actualObject[key], value, `Unexpected value for "${key}"`);
+  }
+};
+
 const createFollow = (followerId: string, followingId: string) =>
   prisma.follow.create({ data: { followerId, followingId } });
 
@@ -234,7 +248,7 @@ test("некоректні ID та параметри пагінації пов�
   ]) {
     const response = await request(path);
     assert.equal(response.status, 400, path);
-    assert.partialDeepStrictEqual(await response.json(), { success: false });
+    assertFields(await response.json(), { success: false });
   }
 });
 
@@ -308,7 +322,7 @@ test("PUT і DELETE відхиляють власний ID, невалідний
     ] as const) {
       const response = await request(`/${id}/follow`, method);
       assert.equal(response.status, status);
-      assert.partialDeepStrictEqual(await response.json(), { success: false });
+      assertFields(await response.json(), { success: false });
     }
   }
   assert.equal(await prisma.follow.count(), 0);
@@ -322,14 +336,14 @@ test("профілі оновлюють лічильники та показую
 
   const current = await request("/current");
   assert.equal(current.status, 200);
-  assert.partialDeepStrictEqual(await current.json(), {
+  assertFields(await current.json(), {
     followersCount: 0,
     followingCount: 1,
   });
 
   const target = await request(`/${targetId}`);
   assert.equal(target.status, 200);
-  assert.partialDeepStrictEqual(await target.json(), {
+  assertFields(await target.json(), {
     followersCount: 1,
     isFollowing: true,
   });
@@ -340,7 +354,7 @@ test("профілі оновлюють лічильники та показую
     generateAccessToken(otherId),
   );
   assert.equal(otherViewer.status, 200);
-  assert.partialDeepStrictEqual(await otherViewer.json(), {
+  assertFields(await otherViewer.json(), {
     followersCount: 1,
     isFollowing: false,
   });
@@ -348,13 +362,14 @@ test("профілі оновлюють лічильники та показую
   assert.equal((await request(path, "DELETE")).status, 204);
   const currentAfter = await request("/current");
   assert.equal(currentAfter.status, 200);
-  assert.partialDeepStrictEqual(await currentAfter.json(), {
+  assertFields(await currentAfter.json(), {
     followersCount: 0,
     followingCount: 0,
   });
+
   const targetAfter = await request(`/${targetId}`);
   assert.equal(targetAfter.status, 200);
-  assert.partialDeepStrictEqual(await targetAfter.json(), {
+  assertFields(await targetAfter.json(), {
     followersCount: 0,
     isFollowing: false,
   });
