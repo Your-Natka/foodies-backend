@@ -382,6 +382,7 @@ test("деталі рецепта доступні гостю, містять і
       area: "Greek",
       time: 30,
       createdAt: "2026-01-02T00:00:00.000Z",
+      isFavorite: false,
       owner: { id: firstOwner, name: "Olena", avatar: null },
       ingredients: [
         {
@@ -465,6 +466,7 @@ test("популярні рецепти доступні гостю та рах�
       "createdAt",
       "description",
       "id",
+      "isFavorite",
       "owner",
       "thumb",
       "time",

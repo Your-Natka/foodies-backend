@@ -536,5 +536,104 @@ test("Swagger проходить перевірку OpenAPI і доступни�
   const spec = (await response.json()) as { paths: Record<string, unknown> };
   assert.ok(spec.paths["/recipes"]);
   assert.ok(spec.paths["/recipes/own"]);
+  assert.ok(spec.paths["/recipes/favorites"]);
+  assert.ok(spec.paths["/recipes/{id}/favorite"]);
   assert.ok(spec.paths["/recipes/{id}"]);
+});
+
+
+const favoriteRequest = (path: string, method = "GET", token: string | null = accessToken) => fetch(`${baseUrl}${path}`, {
+  method, headers: token === null ? {} : { Authorization: `Bearer ${token}` },
+});
+
+test("обране ізольоване між користувачами, повторні PUT/DELETE не створюють дублікати", async () => {
+  const { data: recipe } = await (await create()).json() as { data: { id: string } };
+  const path = `/recipes/${recipe.id}/favorite`;
+  const responses = await Promise.all([favoriteRequest(path, "PUT"), favoriteRequest(path, "PUT")]);
+  assert.deepEqual(responses.map(r => r.status).sort(), [200, 201]);
+  for (const response of responses) assert.deepEqual(await response.json(), { data: { recipeId: recipe.id, isFavorite: true } });
+  assert.equal((await favoriteRequest(path, "PUT", otherToken)).status, 201);
+  assert.equal(await prisma.favorite.count(), 2);
+  for (const route of ["/recipes", "/recipes/popular", "/recipes/own", `/recipes/${recipe.id}`]) {
+    const response = await favoriteRequest(route);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+    assert.match(response.headers.get("vary")!, /Authorization/);
+    const body = await response.json() as { data: { isFavorite: boolean } | { isFavorite: boolean }[] };
+    assert.equal((Array.isArray(body.data) ? body.data[0] : body.data).isFavorite, true);
+  }
+  const guest = await (await favoriteRequest(`/recipes/${recipe.id}`, "GET", null)).json() as { data: { isFavorite: boolean } };
+  assert.equal(guest.data.isFavorite, false);
+  for (let i = 0; i < 2; i++) {
+    const response = await favoriteRequest(path, "DELETE");
+    assert.equal(response.status, 204);
+    assert.equal(await response.text(), "");
+  }
+  assert.equal(await prisma.favorite.count({ where: { userId: ownerId } }), 0);
+  assert.equal(await prisma.favorite.count({ where: { userId: otherId } }), 1);
+  const ownDetails = await (await favoriteRequest(`/recipes/${recipe.id}`)).json() as { data: { isFavorite: boolean } };
+  assert.equal(ownDetails.data.isFavorite, false);
+  const profile = await (await favoriteRequest("/users/current", "GET", otherToken)).json() as { favoritesCount: number };
+  assert.equal(profile.favoritesCount, 1);
+  assert.equal((await remove(recipe.id, otherToken)).status, 403);
+  assert.equal((await remove(recipe.id)).status, 204);
+  assert.equal(await prisma.favorite.count(), 0);
+  const list = await (await favoriteRequest("/recipes/favorites", "GET", otherToken)).json();
+  assert.deepEqual(list, { data: [], pagination: { page: 1, limit: 9, total: 0, totalPages: 0 } });
+  assert.equal((await favoriteRequest(path, "DELETE", otherToken)).status, 204);
+  assert.equal((await favoriteRequest(path, "PUT", otherToken)).status, 404);
+});
+
+test("список обраного має серверну пагінацію та не перехоплюється /:id", async () => {
+  const ids: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const { data } = await (await create()).json() as { data: { id: string } };
+    ids.push(data.id);
+    await prisma.recipe.update({ where: { id: data.id }, data: { createdAt: new Date("2026-01-01") } });
+    await favoriteRequest(`/recipes/${data.id}/favorite`, "PUT");
+  }
+  const response = await favoriteRequest("/recipes/favorites?page=2&limit=2");
+  assert.equal(response.status, 200);
+  const body = await response.json() as { data: { id: string; isFavorite: boolean }[]; pagination: unknown };
+  assert.deepEqual(body.pagination, { page: 2, limit: 2, total: 3, totalPages: 2 });
+  assert.deepEqual(body.data.map(r => r.id), ids.sort().reverse().slice(2));
+  assert.equal(body.data[0].isFavorite, true);
+  const outside = await (await favoriteRequest("/recipes/favorites?page=3&limit=2")).json() as { data: unknown[] };
+  assert.deepEqual(outside.data, []);
+  for (const query of ["page=0", "limit=101", "limit=1&limit=2", `ownerId=${otherId}`, "category=Seafood"]) {
+    assert.equal((await favoriteRequest(`/recipes/favorites?${query}`)).status, 400);
+  }
+});
+
+test("обране вимагає access token і перевіряє ID", async () => {
+  const id = "a".repeat(24);
+  const refresh = jwt.sign({ sub: ownerId, type: "refresh" }, process.env.JWT_SECRET!);
+  const expired = jwt.sign({ sub: ownerId, type: "access" }, process.env.JWT_SECRET!, { expiresIn: -1 });
+  const deletedUser = jwt.sign({ sub: "f".repeat(24), type: "access" }, process.env.JWT_SECRET!);
+  for (const token of [null, "invalid", refresh, expired, deletedUser]) {
+    for (const [path, method] of [["/recipes/favorites", "GET"], [`/recipes/${id}/favorite`, "PUT"], [`/recipes/${id}/favorite`, "DELETE"]]) {
+      assert.equal((await favoriteRequest(path, method, token)).status, 401);
+    }
+  }
+  for (const method of ["PUT", "DELETE"]) assert.equal((await favoriteRequest("/recipes/bad/favorite", method)).status, 400);
+  for (const path of ["/recipes", "/recipes/popular", `/recipes/${id}`]) {
+    assert.equal((await favoriteRequest(path, "GET", "invalid")).status, 401);
+  }
+  assert.equal((await favoriteRequest(`/recipes/${id}/favorite`, "PUT")).status, 404);
+  assert.equal((await favoriteRequest(`/recipes/${id}/favorite`, "DELETE")).status, 204);
+});
+
+test("HTTP-операції обраного змінюють популярність без повторного підрахунку", async () => {
+  const ids: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const { data } = await (await create()).json() as { data: { id: string } };
+    ids.push(data.id);
+  }
+  const target = ids[0];
+  await favoriteRequest(`/recipes/${target}/favorite`, "PUT");
+  await favoriteRequest(`/recipes/${target}/favorite`, "PUT");
+  const popular = await (await favoriteRequest("/recipes/popular", "GET", null)).json() as { data: { id: string; isFavorite: boolean }[] };
+  assert.equal(popular.data[0].id, target);
+  assert.ok(popular.data.every(r => !r.isFavorite));
+  assert.equal(await prisma.favorite.count(), 1);
 });

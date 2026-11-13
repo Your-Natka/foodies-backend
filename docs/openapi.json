@@ -26,7 +26,9 @@
   "paths": {
     "/auth/register": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Реєстрація користувача",
         "description": "Створює обліковий запис користувача та повертає access token. Refresh token встановлюється в HTTP-only cookie.",
         "operationId": "register",
@@ -36,7 +38,11 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name", "email", "password"],
+                "required": [
+                  "name",
+                  "email",
+                  "password"
+                ],
                 "properties": {
                   "name": {
                     "type": "string",
@@ -69,7 +75,9 @@
     },
     "/auth/login": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Авторизація користувача",
         "description": "Перевіряє облікові дані та повертає access token. Refresh token встановлюється в HTTP-only cookie.",
         "operationId": "login",
@@ -79,7 +87,10 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["email", "password"],
+                "required": [
+                  "email",
+                  "password"
+                ],
                 "properties": {
                   "email": {
                     "type": "string",
@@ -108,7 +119,9 @@
     },
     "/auth/refresh": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Оновлення access token",
         "description": "Використовує refresh token із cookie для створення нової пари токенів.",
         "operationId": "refresh",
@@ -124,7 +137,9 @@
     },
     "/auth/logout": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Вихід із системи",
         "description": "Відкликає refresh token поточного користувача та очищає cookie.",
         "operationId": "logout",
@@ -145,7 +160,9 @@
     },
     "/users/current": {
       "get": {
-        "tags": ["Users"],
+        "tags": [
+          "Users"
+        ],
         "summary": "Профіль поточного користувача",
         "description": "Повертає профіль авторизованого користувача, кількість рецептів, обраного, підписників і підписок, а також список його рецептів.",
         "operationId": "getCurrentUser",
@@ -218,7 +235,9 @@
     },
     "/users/{id}": {
       "get": {
-        "tags": ["Users"],
+        "tags": [
+          "Users"
+        ],
         "summary": "Профіль користувача за ID",
         "description": "Повертає публічний профіль користувача, кількість його рецептів і підписників, статус підписки поточного користувача та список рецептів.",
         "operationId": "getUserById",
@@ -293,7 +312,9 @@
     },
     "/users/current/avatar": {
       "patch": {
-        "tags": ["Users"],
+        "tags": [
+          "Users"
+        ],
         "summary": "Оновити аватар користувача",
         "description": "Завантажує новий аватар користувача до Cloudinary та оновлює посилання на нього в профілі.",
         "operationId": "updateAvatar",
@@ -308,7 +329,9 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": ["avatar"],
+                "required": [
+                  "avatar"
+                ],
                 "properties": {
                   "avatar": {
                     "type": "string",
@@ -327,7 +350,10 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["message", "user"],
+                  "required": [
+                    "message",
+                    "user"
+                  ],
                   "properties": {
                     "message": {
                       "type": "string",
@@ -335,7 +361,12 @@
                     },
                     "user": {
                       "type": "object",
-                      "required": ["id", "name", "email", "avatar"],
+                      "required": [
+                        "id",
+                        "name",
+                        "email",
+                        "avatar"
+                      ],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -368,7 +399,9 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["error"],
+                  "required": [
+                    "error"
+                  ],
                   "properties": {
                     "error": {
                       "type": "string",
@@ -387,10 +420,12 @@
     },
     "/recipes": {
       "get": {
-        "tags": ["Recipes"],
+        "tags": [
+          "Recipes"
+        ],
         "summary": "Каталог рецептів",
         "operationId": "listRecipes",
-        "description": "Фільтри діють разом. Порядок createdAt DESC, id DESC. Порожні фільтри ігноруються; невідомі та повторні параметри повертають 400.",
+        "description": "Фільтри діють разом. Порядок createdAt DESC, id DESC. Порожні фільтри ігноруються; невідомі та повторні параметри повертають 400. Без Authorization запит публічний, isFavorite=false. Переданий токен має бути чинним access token, інакше 401. Відповіді мають Cache-Control: private, no-store та Vary: Authorization.",
         "parameters": [
           {
             "name": "category",
@@ -475,11 +510,22 @@
           },
           "500": {
             "$ref": "#/components/responses/500"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
           }
-        }
+        },
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
-        "tags": ["Recipes"],
+        "tags": [
+          "Recipes"
+        ],
         "summary": "Створити власний рецепт",
         "operationId": "addRecipe",
         "security": [
@@ -532,10 +578,12 @@
     },
     "/recipes/popular": {
       "get": {
-        "tags": ["Recipes"],
+        "tags": [
+          "Recipes"
+        ],
         "summary": "Популярні рецепти",
         "operationId": "listPopularRecipes",
-        "description": "До чотирьох рецептів за кількістю різних користувачів, які додали їх в обране. Далі createdAt DESC, id DESC. Query-параметри не приймаються.",
+        "description": "До чотирьох рецептів за кількістю різних користувачів, які додали їх в обране. Далі createdAt DESC, id DESC. Query-параметри не приймаються. Без Authorization запит публічний, isFavorite=false. Переданий токен має бути чинним access token, інакше 401. Відповіді мають Cache-Control: private, no-store та Vary: Authorization.",
         "responses": {
           "200": {
             "description": "До чотирьох карток",
@@ -543,7 +591,9 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["data"],
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {
                       "type": "array",
@@ -562,13 +612,24 @@
           },
           "500": {
             "$ref": "#/components/responses/500"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
           }
-        }
+        },
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/recipes/own": {
       "get": {
-        "tags": ["Recipes"],
+        "tags": [
+          "Recipes"
+        ],
         "summary": "Власні рецепти",
         "operationId": "listOwnRecipes",
         "security": [
@@ -641,7 +702,9 @@
         }
       ],
       "get": {
-        "tags": ["Recipes"],
+        "tags": [
+          "Recipes"
+        ],
         "summary": "Деталі рецепта",
         "operationId": "getRecipe",
         "responses": {
@@ -663,11 +726,23 @@
           },
           "500": {
             "$ref": "#/components/responses/500"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
           }
-        }
+        },
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": " Без Authorization запит публічний, isFavorite=false. Переданий токен має бути чинним access token, інакше 401. Відповіді мають Cache-Control: private, no-store та Vary: Authorization."
       },
       "delete": {
-        "tags": ["Recipes"],
+        "tags": [
+          "Recipes"
+        ],
         "summary": "Видалити власний рецепт",
         "operationId": "removeRecipe",
         "security": [
@@ -705,7 +780,9 @@
         }
       ],
       "get": {
-        "tags": ["Follows"],
+        "tags": [
+          "Follows"
+        ],
         "summary": "Підписники профілю",
         "operationId": "listFollowers",
         "security": [
@@ -750,7 +827,9 @@
     },
     "/users/following": {
       "get": {
-        "tags": ["Follows"],
+        "tags": [
+          "Follows"
+        ],
         "summary": "Мої підписки",
         "operationId": "listFollowing",
         "security": [
@@ -800,7 +879,9 @@
         }
       ],
       "put": {
-        "tags": ["Follows"],
+        "tags": [
+          "Follows"
+        ],
         "summary": "Підписатися на користувача",
         "operationId": "followUser",
         "security": [
@@ -845,7 +926,9 @@
         }
       },
       "delete": {
-        "tags": ["Follows"],
+        "tags": [
+          "Follows"
+        ],
         "summary": "Відписатися від користувача",
         "operationId": "unfollowUser",
         "security": [
@@ -872,6 +955,217 @@
           }
         }
       }
+    },
+    "/recipes/favorites": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Обрані рецепти",
+        "operationId": "listFavorites",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Лише обране поточного користувача. page=1, limit=9, максимум 100. Порядок createdAt DESC, id DESC. isFavorite=true. Невідомі та повторні query-параметри повертають 400.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Номер сторінки; зсув (page - 1) * limit не більше 2147483647.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Кількість рецептів на сторінці.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 9
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Обрані рецепти та серверна пагінація",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/recipes/{id}/favorite": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{24}$",
+            "example": "6462a8f74c3d0ddd28897fb8"
+          },
+          "description": "24 шістнадцяткові символи. Великі літери приймаються."
+        }
+      ],
+      "put": {
+        "tags": [
+          "Recipes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "200": {
+            "description": "Рецепт в обраному",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "recipeId",
+                        "isFavorite"
+                      ],
+                      "properties": {
+                        "recipeId": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{24}$"
+                        },
+                        "isFavorite": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "data": {
+                    "recipeId": "640cd5ac2d9fecf12e8897f9",
+                    "isFavorite": true
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Рецепт в обраному",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "recipeId",
+                        "isFavorite"
+                      ],
+                      "properties": {
+                        "recipeId": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{24}$"
+                        },
+                        "isFavorite": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "data": {
+                    "recipeId": "640cd5ac2d9fecf12e8897f9",
+                    "isFavorite": true
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        },
+        "summary": "Додати рецепт до обраного",
+        "operationId": "putFavorite",
+        "description": "Без тіла. Власник береться з access token. Перший PUT повертає 201, повторний 200, зокрема при одночасних запитах. Відсутній рецепт: 404."
+      },
+      "delete": {
+        "tags": [
+          "Recipes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "204": {
+            "description": "Зв’язок відсутній, без тіла відповіді"
+          }
+        },
+        "summary": "Прибрати рецепт з обраного",
+        "operationId": "deleteFavorite",
+        "description": "Видаляє тільки зв’язок поточного користувача. 204 також при повторному запиті або після видалення самого рецепта."
+      }
     }
   },
   "components": {
@@ -885,7 +1179,11 @@
     "schemas": {
       "Owner": {
         "type": "object",
-        "required": ["id", "name", "avatar"],
+        "required": [
+          "id",
+          "name",
+          "avatar"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -935,7 +1233,8 @@
           "area",
           "time",
           "createdAt",
-          "owner"
+          "owner",
+          "isFavorite"
         ],
         "properties": {
           "id": {
@@ -974,12 +1273,22 @@
           },
           "owner": {
             "$ref": "#/components/schemas/Owner"
+          },
+          "isFavorite": {
+            "type": "boolean",
+            "description": "false для гостя; для авторизованого користувача залежить від його обраного.",
+            "example": false
           }
         }
       },
       "RecipeIngredient": {
         "type": "object",
-        "required": ["id", "name", "img", "measure"],
+        "required": [
+          "id",
+          "name",
+          "img",
+          "measure"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -1007,7 +1316,10 @@
           },
           {
             "type": "object",
-            "required": ["instructions", "ingredients"],
+            "required": [
+              "instructions",
+              "ingredients"
+            ],
             "properties": {
               "instructions": {
                 "type": "string",
@@ -1025,7 +1337,12 @@
       },
       "Pagination": {
         "type": "object",
-        "required": ["page", "limit", "total", "totalPages"],
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ],
         "properties": {
           "page": {
             "type": "integer",
@@ -1047,7 +1364,10 @@
       },
       "RecipeList": {
         "type": "object",
-        "required": ["data", "pagination"],
+        "required": [
+          "data",
+          "pagination"
+        ],
         "properties": {
           "data": {
             "type": "array",
@@ -1062,7 +1382,9 @@
       },
       "RecipeResponse": {
         "type": "object",
-        "required": ["data"],
+        "required": [
+          "data"
+        ],
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Recipe"
@@ -1135,11 +1457,16 @@
       },
       "Error": {
         "type": "object",
-        "required": ["success", "message"],
+        "required": [
+          "success",
+          "message"
+        ],
         "properties": {
           "success": {
             "type": "boolean",
-            "enum": [false]
+            "enum": [
+              false
+            ]
           },
           "message": {
             "type": "string"
@@ -1148,7 +1475,10 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["field", "message"],
+              "required": [
+                "field",
+                "message"
+              ],
               "properties": {
                 "field": {
                   "type": "string"
@@ -1196,7 +1526,10 @@
             "description": "Останні рецепти за createdAt DESC, id DESC.",
             "items": {
               "type": "object",
-              "required": ["id", "thumb"],
+              "required": [
+                "id",
+                "thumb"
+              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -1212,7 +1545,10 @@
       },
       "FollowList": {
         "type": "object",
-        "required": ["data", "pagination"],
+        "required": [
+          "data",
+          "pagination"
+        ],
         "properties": {
           "data": {
             "type": "array",
@@ -1227,11 +1563,16 @@
       },
       "FollowResponse": {
         "type": "object",
-        "required": ["data"],
+        "required": [
+          "data"
+        ],
         "properties": {
           "data": {
             "type": "object",
-            "required": ["userId", "isFollowing"],
+            "required": [
+              "userId",
+              "isFollowing"
+            ],
             "properties": {
               "userId": {
                 "type": "string",
@@ -1239,7 +1580,9 @@
               },
               "isFollowing": {
                 "type": "boolean",
-                "enum": [true]
+                "enum": [
+                  true
+                ]
               }
             }
           }
