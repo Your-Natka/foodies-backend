@@ -46,23 +46,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.get("/api/health", (_req, res) => {
+app.get("/health", (_req, res) => {
   res.status(200).json({
     success: true,
     message: "Foodies API is running!",
   });
 });
 
-app.use("/api/auth", authRouter);
-app.use("/api/users", userRouter);
-app.use("/api/recipes", recipeRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/areas", areaRoutes);
-app.use("/api/ingredients", ingredientRoutes);
-app.use("/api/testimonials", testimonialRoutes);
-app.get("/api-docs/openapi.json", (_req, res) => res.json(openApi));
+app.use("/auth", authRouter);
+app.use("/users", userRouter);
+app.use("/recipes", recipeRoutes);
+app.use("/categories", categoryRoutes);
+app.use("/areas", areaRoutes);
+app.use("/ingredients", ingredientRoutes);
+app.use("/testimonials", testimonialRoutes);
+app.get("/docs/openapi.json", (_req, res) => res.json(openApi));
 app.use(
-  "/api-docs",
+  "/docs",
   swaggerUi.serve,
   swaggerUi.setup(openApi, {
     customSiteTitle: "Foodies API",
