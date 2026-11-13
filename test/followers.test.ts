@@ -8,7 +8,10 @@ import { after, before, beforeEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import jwt from "jsonwebtoken";
 import pg from "pg";
-import { generateAccessToken, generateRefreshToken } from "../src/utils/generateTokens.ts";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+} from "../src/utils/generateTokens.ts";
 
 if (!process.env.TEST_DATABASE_URL) {
   throw new Error("Set TEST_DATABASE_URL to run PostgreSQL integration tests");
@@ -39,56 +42,68 @@ let prisma: typeof import("../prisma/client.ts").default;
 let server: Server | undefined;
 let baseUrl: string;
 
-before(async () => {
-  await admin.connect();
-  await admin.query(`CREATE DATABASE "${databaseName}"`);
-  databaseCreated = true;
+before(
+  async () => {
+    await admin.connect();
+    await admin.query(`CREATE DATABASE "${databaseName}"`);
+    databaseCreated = true;
 
-  const migration = spawnSync(process.execPath, [
-    fileURLToPath(new URL("../node_modules/prisma/build/index.js", import.meta.url)),
-    "migrate", "deploy",
-  ], {
-    env: { ...process.env, DIRECT_URL: databaseUrl.href },
-    encoding: "utf8",
-    timeout: 30000,
-  });
-  assert.equal(migration.status, 0, migration.stdout + migration.stderr);
+    const migration = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL("../node_modules/prisma/build/index.js", import.meta.url),
+        ),
+        "migrate",
+        "deploy",
+      ],
+      {
+        env: { ...process.env, DIRECT_URL: databaseUrl.href },
+        encoding: "utf8",
+        timeout: 30000,
+      },
+    );
+    assert.equal(migration.status, 0, migration.stdout + migration.stderr);
 
-  prisma = (await import("../prisma/client.ts")).default;
-  await prisma.user.createMany({
-    data: [
-      { id: viewerId, name: "Viewer" },
-      { id: targetId, name: "Target" },
-      { id: otherId, name: "Other" },
-      { id: emptyId, name: "Empty" },
-    ].map((user) => ({
-      ...user,
-      email: `${user.name.toLowerCase()}@example.com`,
-      password: "fixture-password",
-      refreshTokenHash: "fixture-hash",
-    })),
-  });
-  await prisma.recipe.createMany({
-    data: recipes.map((recipe, index) => ({
-      ...recipe,
-      ownerId: otherId,
-      title: "Recipe title",
-      description: "Recipe description",
-      instructions: "Recipe instructions",
-      category: "Seafood",
-      area: "Greek",
-      time: 15,
-      createdAt: new Date(index === 1 || index === 3 ? "2026-01-01" : "2026-01-02"),
-    })),
-  });
+    prisma = (await import("../prisma/client.ts")).default;
+    await prisma.user.createMany({
+      data: [
+        { id: viewerId, name: "Viewer" },
+        { id: targetId, name: "Target" },
+        { id: otherId, name: "Other" },
+        { id: emptyId, name: "Empty" },
+      ].map((user) => ({
+        ...user,
+        email: `${user.name.toLowerCase()}@example.com`,
+        password: "fixture-password",
+        refreshTokenHash: "fixture-hash",
+      })),
+    });
+    await prisma.recipe.createMany({
+      data: recipes.map((recipe, index) => ({
+        ...recipe,
+        ownerId: otherId,
+        title: "Recipe title",
+        description: "Recipe description",
+        instructions: "Recipe instructions",
+        category: "Seafood",
+        area: "Greek",
+        time: 15,
+        createdAt: new Date(
+          index === 1 || index === 3 ? "2026-01-01" : "2026-01-02",
+        ),
+      })),
+    });
 
-  const app = (await import("../src/app.ts")).default;
-  server = app.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
-  baseUrl = `http://127.0.0.1:${address.port}/api/users`;
-}, { timeout: 45000 });
+    const app = (await import("../src/app.ts")).default;
+    server = app.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    baseUrl = `http://127.0.0.1:${address.port}/users`;
+  },
+  { timeout: 45000 },
+);
 
 beforeEach(async () => {
   await prisma.follow.deleteMany();
@@ -99,7 +114,7 @@ after(async () => {
     if (server?.listening) {
       const runningServer = server;
       await new Promise<void>((resolve, reject) => {
-        runningServer.close((error) => error ? reject(error) : resolve());
+        runningServer.close((error) => (error ? reject(error) : resolve()));
       });
     }
     if (prisma) await prisma.$disconnect();
@@ -112,14 +127,18 @@ after(async () => {
 const createFollow = (followerId: string, followingId: string) =>
   prisma.follow.create({ data: { followerId, followingId } });
 
-const request = (path: string, method = "GET", token = generateAccessToken(viewerId)) =>
+const request = (
+  path: string,
+  method = "GET",
+  token = generateAccessToken(viewerId),
+) =>
   fetch(`${baseUrl}${path}`, {
     method,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 
 const readCards = async (response: Response) =>
-  (await response.json() as { data: { id: string }[] }).data;
+  ((await response.json()) as { data: { id: string }[] }).data;
 
 test("усі маршрути вимагають access token і забороняють кешування", async () => {
   const paths = [
@@ -129,10 +148,17 @@ test("усі маршрути вимагають access token і заборон�
     ["DELETE", `/${targetId}/follow`],
   ];
 
-  const expiredToken = jwt.sign({ sub: viewerId, type: "access" }, jwtSecret, { expiresIn: -1 });
+  const expiredToken = jwt.sign({ sub: viewerId, type: "access" }, jwtSecret, {
+    expiresIn: -1,
+  });
 
   for (const [method, path] of paths) {
-    for (const token of ["", "invalid", generateRefreshToken(viewerId), expiredToken]) {
+    for (const token of [
+      "",
+      "invalid",
+      generateRefreshToken(viewerId),
+      expiredToken,
+    ]) {
       const response = await request(path, method, token);
       assert.equal(response.status, 401);
       assert.equal(response.headers.get("cache-control"), "private, no-store");
@@ -150,15 +176,31 @@ test("Followers повертає впорядковану сторінку, ст
   const response = await request(`/${targetId}/followers?page=2&limit=1`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
-    data: [{ id: otherId, name: "Other", avatar: null, recipesCount: 6, isFollowing: true, recipes: recipePreviews }],
+    data: [
+      {
+        id: otherId,
+        name: "Other",
+        avatar: null,
+        recipesCount: 6,
+        isFollowing: true,
+        recipes: recipePreviews,
+      },
+    ],
     pagination: { page: 2, limit: 1, total: 2, totalPages: 2 },
   });
 
   const firstPage = await request(`/${targetId}/followers?page=1&limit=1`);
   assert.equal(firstPage.status, 200);
-  assert.deepEqual(await readCards(firstPage), [{
-    id: viewerId, name: "Viewer", avatar: null, recipesCount: 0, isFollowing: false, recipes: [],
-  }]);
+  assert.deepEqual(await readCards(firstPage), [
+    {
+      id: viewerId,
+      name: "Viewer",
+      avatar: null,
+      recipesCount: 0,
+      isFollowing: false,
+      recipes: [],
+    },
+  ]);
 });
 
 test("Following використовує профіль із токена та повертає порожні сторінки", async () => {
@@ -166,14 +208,16 @@ test("Following використовує профіль із токена та �
   const empty = await request("/following");
   assert.equal(empty.status, 200);
   assert.deepEqual(await empty.json(), {
-    data: [], pagination: { page: 1, limit: 5, total: 0, totalPages: 0 },
+    data: [],
+    pagination: { page: 1, limit: 5, total: 0, totalPages: 0 },
   });
 
   await createFollow(viewerId, targetId);
   const beyond = await request("/following?page=3&limit=100");
   assert.equal(beyond.status, 200);
   assert.deepEqual(await beyond.json(), {
-    data: [], pagination: { page: 3, limit: 100, total: 1, totalPages: 1 },
+    data: [],
+    pagination: { page: 3, limit: 100, total: 1, totalPages: 1 },
   });
 });
 
@@ -197,30 +241,48 @@ test("некоректні ID та параметри пагінації пов�
 test("неіснуючий профіль повертає 404, порожній профіль повертає 200", async () => {
   const missing = await request(`/${unknownId}/followers`);
   assert.equal(missing.status, 404);
-  assert.deepEqual(await missing.json(), { success: false, message: "User not found" });
+  assert.deepEqual(await missing.json(), {
+    success: false,
+    message: "User not found",
+  });
 
   const empty = await request(`/${emptyId}/followers`);
   assert.equal(empty.status, 200);
   assert.deepEqual(await empty.json(), {
-    data: [], pagination: { page: 1, limit: 5, total: 0, totalPages: 0 },
+    data: [],
+    pagination: { page: 1, limit: 5, total: 0, totalPages: 0 },
   });
 });
 
 test("PUT і DELETE ідемпотентні та змінюють обидва списки", async () => {
   const path = `/${targetId}/follow`;
-  const putResponses = await Promise.all([request(path, "PUT"), request(path, "PUT")]);
-  assert.deepEqual(putResponses.map((response) => response.status).sort(), [200, 201]);
+  const putResponses = await Promise.all([
+    request(path, "PUT"),
+    request(path, "PUT"),
+  ]);
+  assert.deepEqual(
+    putResponses.map((response) => response.status).sort(),
+    [200, 201],
+  );
   for (const response of putResponses) {
-    assert.deepEqual(await response.json(), { data: { userId: targetId, isFollowing: true } });
+    assert.deepEqual(await response.json(), {
+      data: { userId: targetId, isFollowing: true },
+    });
   }
 
   assert.equal(await prisma.follow.count(), 1);
   const following = await request("/following");
   assert.equal(following.status, 200);
-  assert.deepEqual((await readCards(following)).map(({ id }) => id), [targetId]);
+  assert.deepEqual(
+    (await readCards(following)).map(({ id }) => id),
+    [targetId],
+  );
   const followers = await request(`/${targetId}/followers`);
   assert.equal(followers.status, 200);
-  assert.deepEqual((await readCards(followers)).map(({ id }) => id), [viewerId]);
+  assert.deepEqual(
+    (await readCards(followers)).map(({ id }) => id),
+    [viewerId],
+  );
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const removed = await request(path, "DELETE");
@@ -231,14 +293,19 @@ test("PUT і DELETE ідемпотентні та змінюють обидва 
     const response = await request(listPath);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
-      data: [], pagination: { page: 1, limit: 5, total: 0, totalPages: 0 },
+      data: [],
+      pagination: { page: 1, limit: 5, total: 0, totalPages: 0 },
     });
   }
 });
 
 test("PUT і DELETE відхиляють власний ID, невалідний ID і неіснуючого користувача", async () => {
   for (const method of ["PUT", "DELETE"]) {
-    for (const [id, status] of [[viewerId, 400], ["bad-id", 400], [unknownId, 404]] as const) {
+    for (const [id, status] of [
+      [viewerId, 400],
+      ["bad-id", 400],
+      [unknownId, 404],
+    ] as const) {
       const response = await request(`/${id}/follow`, method);
       assert.equal(response.status, status);
       assert.partialDeepStrictEqual(await response.json(), { success: false });
@@ -255,21 +322,40 @@ test("профілі оновлюють лічильники та показую
 
   const current = await request("/current");
   assert.equal(current.status, 200);
-  assert.partialDeepStrictEqual(await current.json(), { followersCount: 0, followingCount: 1 });
+  assert.partialDeepStrictEqual(await current.json(), {
+    followersCount: 0,
+    followingCount: 1,
+  });
 
   const target = await request(`/${targetId}`);
   assert.equal(target.status, 200);
-  assert.partialDeepStrictEqual(await target.json(), { followersCount: 1, isFollowing: true });
+  assert.partialDeepStrictEqual(await target.json(), {
+    followersCount: 1,
+    isFollowing: true,
+  });
 
-  const otherViewer = await request(`/${targetId}`, "GET", generateAccessToken(otherId));
+  const otherViewer = await request(
+    `/${targetId}`,
+    "GET",
+    generateAccessToken(otherId),
+  );
   assert.equal(otherViewer.status, 200);
-  assert.partialDeepStrictEqual(await otherViewer.json(), { followersCount: 1, isFollowing: false });
+  assert.partialDeepStrictEqual(await otherViewer.json(), {
+    followersCount: 1,
+    isFollowing: false,
+  });
 
   assert.equal((await request(path, "DELETE")).status, 204);
   const currentAfter = await request("/current");
   assert.equal(currentAfter.status, 200);
-  assert.partialDeepStrictEqual(await currentAfter.json(), { followersCount: 0, followingCount: 0 });
+  assert.partialDeepStrictEqual(await currentAfter.json(), {
+    followersCount: 0,
+    followingCount: 0,
+  });
   const targetAfter = await request(`/${targetId}`);
   assert.equal(targetAfter.status, 200);
-  assert.partialDeepStrictEqual(await targetAfter.json(), { followersCount: 0, isFollowing: false });
+  assert.partialDeepStrictEqual(await targetAfter.json(), {
+    followersCount: 0,
+    isFollowing: false,
+  });
 });

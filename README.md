@@ -14,19 +14,19 @@ npm run seed
 npm run dev
 ```
 
-`npm start` запускає сервер без стеження за файлами. `GET /api/health` перевіряє HTTP-сервер.
+`npm start` запускає сервер без стеження за файлами. `GET /health` перевіряє HTTP-сервер.
 
 ## API
 
-[Контракт і стан реалізації](docs/api.md). Каталог доступний через `GET /api/recipes`; приклад: `/api/recipes?category=Seafood&page=1&limit=9`.
+[Контракт і стан реалізації](docs/api.md). Каталог доступний через `GET /recipes`; приклад: `/recipes?category=Seafood&page=1&limit=9`.
 
-`GET /api/recipes/:id` повертає рецепт з автором, інструкціями та інгредієнтами. Невірний формат ID повертає 400, відсутній рецепт 404.
+`GET /recipes/:id` повертає рецепт з автором, інструкціями та інгредієнтами. Невірний формат ID повертає 400, відсутній рецепт 404.
 
-`GET /api/recipes/popular` повертає до чотирьох рецептів за кількістю користувачів, які додали їх в обране. Маршрут публічний, без query-параметрів.
+`GET /recipes/popular` повертає до чотирьох рецептів за кількістю користувачів, які додали їх в обране. Маршрут публічний, без query-параметрів.
 
-`GET /api/recipes/own` повертає свої рецепти з пагінацією `page`/`limit`. `DELETE /api/recipes/:id` видаляє тільки власний рецепт і повертає 204. Для обох маршрутів потрібен `Authorization: Bearer <accessToken>`; у `.env` задайте `JWT_SECRET`, з яким підписуються access-токени. Чужий рецепт видалити не можна, відповідь 403.
+`GET /recipes/own` повертає свої рецепти з пагінацією `page`/`limit`. `DELETE /recipes/:id` видаляє тільки власний рецепт і повертає 204. Для обох маршрутів потрібен `Authorization: Bearer <accessToken>`; у `.env` задайте `JWT_SECRET`, з яким підписуються access-токени. Чужий рецепт видалити не можна, відповідь 403.
 
-`POST /api/recipes` створює рецепт і повертає 201 з його ID та деталями. Потрібні access token, multipart/form-data з фото та поля з [контракту](docs/api.md#post-apirecipes). Для фото заповніть `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` у `.env`. Приймаються JPEG, PNG і WebP до 5 МіБ.
+`POST /recipes` створює рецепт і повертає 201 з його ID та деталями. Потрібні access token, multipart/form-data з фото та поля з [контракту](docs/api.md#post-apirecipes). Для фото заповніть `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` у `.env`. Приймаються JPEG, PNG і WebP до 5 МіБ.
 
 Swagger UI для рецептів і підписок доступний на `/docs/`, схема на `/docs/openapi.json`. У Swagger можна передати access token через Authorize та перевірити запити. Маршрути обраного ще належать до BE-04 і тут не описані як готові.
 
