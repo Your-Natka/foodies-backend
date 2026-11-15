@@ -22,6 +22,16 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+app.use((req, _res, next) => {
+  console.log("[HTTP REQUEST]", {
+    method: req.method,
+    url: req.originalUrl,
+    origin: req.headers.origin,
+  });
+
+  next();
+});
+
 app.use(helmet());
 
 app.use(
