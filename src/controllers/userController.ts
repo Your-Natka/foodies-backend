@@ -1,42 +1,12 @@
 import type { RequestHandler } from "express";
-import prisma from "../../prisma/client.ts";
-import { uploadToCloudinary } from "../utils/uploadToCloudinary.ts";
+import {
+  getCurrentUserProfile,
+  getUserProfileById,
+  updateUserAvatar,
+} from "../services/userService.ts";
 
-// Get current user profile
 export const getCurrentUser: RequestHandler = async (req, res) => {
-  const userId = req.user!.sub;
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      avatar: true,
-      _count: {
-        select: {
-          recipes: true,
-          followers: true,
-          following: true,
-        },
-      },
-      recipes: {
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          thumb: true,
-        },
-      },
-      favorites: {
-        select: {
-          recipeId: true,
-        },
-      },
-    },
-  });
+  const user = await getCurrentUserProfile(req.user!.sub);
 
   if (!user) {
     res.status(404).json({
@@ -45,17 +15,7 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
     return;
   }
 
-  res.status(200).json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatar: user.avatar,
-    recipesCount: user._count.recipes,
-    favoritesCount: user.favorites.length,
-    followersCount: user._count.followers,
-    followingCount: user._count.following,
-    recipes: user.recipes,
-  });
+  res.status(200).json(user);
 };
 
 export const getUserById: RequestHandler = async (req, res) => {
@@ -68,36 +28,7 @@ export const getUserById: RequestHandler = async (req, res) => {
     return;
   }
 
-  const user = await prisma.user.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      avatar: true,
-      _count: {
-        select: {
-          recipes: true,
-          followers: true,
-        },
-      },
-      followers: {
-        where: { followerId: req.user!.sub },
-        select: { followerId: true },
-        take: 1,
-      },
-      recipes: {
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          thumb: true,
-        },
-      },
-    },
-  });
+  const user = await getUserProfileById(id, req.user!.sub);
 
   if (!user) {
     res.status(404).json({
@@ -106,39 +37,19 @@ export const getUserById: RequestHandler = async (req, res) => {
     return;
   }
 
-  res.set("Cache-Control", "private, no-store").status(200).json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatar: user.avatar,
-    recipesCount: user._count.recipes,
-    followersCount: user._count.followers,
-    isFollowing: user.followers.length > 0,
-    recipes: user.recipes,
-  });
+  res.set("Cache-Control", "private, no-store").status(200).json(user);
 };
 
 export const updateAvatar: RequestHandler = async (req, res, next) => {
   try {
     if (!req.file) {
-      res.status(400).json({ error: "Avatar file is required" });
+      res.status(400).json({
+        error: "Avatar file is required",
+      });
       return;
     }
 
-    const avatarUrl = await uploadToCloudinary(req.file, {
-      folder: "foodies/avatars",
-    });
-
-    const user = await prisma.user.update({
-      where: { id: req.user!.sub },
-      data: { avatar: avatarUrl },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatar: true,
-      },
-    });
+    const user = await updateUserAvatar(req.user!.sub, req.file);
 
     res.status(200).json({
       message: "Avatar updated successfully",

@@ -1,5 +1,3 @@
-// temp comment
-
 import type { RequestHandler } from "express";
 import type { ZodType } from "zod";
 
