@@ -1,7 +1,10 @@
 import { Router } from "express";
-import { getCurrentUser, getUserById } from "../controllers/userController.ts";
+import {
+  getCurrentUser,
+  getUserById,
+  updateAvatar,
+} from "../controllers/userController.ts";
 import { authenticate } from "../middlewares/authMiddleware.ts";
-import { updateAvatar } from "../controllers/userController.ts";
 import { upload } from "../middlewares/uploadMiddleware.ts";
 import followRouter from "./followRoutes.ts";
 

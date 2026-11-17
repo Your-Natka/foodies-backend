@@ -1,15 +1,12 @@
 import type { RequestHandler } from "express";
-import jwt from "jsonwebtoken";
-import prisma from "../../prisma/client.ts";
 
-import { generateId } from "../utils/generateId.ts";
 import {
-  generateAccessToken,
-  generateRefreshToken,
-  getJwtSecret,
-} from "../utils/generateTokens.ts";
-import { hashPassword, comparePassword } from "../utils/hashPassword.ts";
-import { hashToken } from "../utils/hashToken.ts";
+  registerUser,
+  loginUser,
+  refreshUserTokens,
+  logoutUser,
+} from "../services/authService.ts";
+
 import {
   clearRefreshCookie,
   setRefreshCookie,
@@ -17,13 +14,9 @@ import {
 
 import type { RegisterInput, LoginInput } from "../validators/authValidator.ts";
 
-import { REFRESH_TOKEN_DURATION } from "../constants/auth.ts";
-import {
-  revokeRefreshToken,
-  saveRefreshToken,
-} from "../services/authService.ts";
-
-const getRefreshTokenFromCookie = (req: Parameters<RequestHandler>[0]) => {
+const getRefreshTokenFromCookie = (
+  req: Parameters<RequestHandler>[0],
+): string | undefined => {
   const cookies = (
     req as typeof req & {
       cookies?: Record<string, string>;
@@ -33,33 +26,10 @@ const getRefreshTokenFromCookie = (req: Parameters<RequestHandler>[0]) => {
   return cookies?.refreshToken;
 };
 
-const isPrismaUniqueError = (error: unknown): boolean => {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "P2002"
-  );
-};
-
-const publicUserSelect = {
-  id: true,
-  name: true,
-  email: true,
-  avatar: true,
-  createdAt: true,
-} as const;
-
-// POST /auth/register
 export const register: RequestHandler = async (req, res) => {
-  const { name, email, password } = req.body as RegisterInput;
+  const result = await registerUser(req.body as RegisterInput);
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-
-  if (existingUser) {
+  if (!result.success) {
     res.status(409).json({
       success: false,
       message: "An account with this email already exists.",
@@ -67,52 +37,19 @@ export const register: RequestHandler = async (req, res) => {
     return;
   }
 
-  const hashedPassword = await hashPassword(password);
+  setRefreshCookie(res, result.refreshToken);
 
-  try {
-    const user = await prisma.user.create({
-      data: {
-        id: generateId(),
-        name,
-        email,
-        password: hashedPassword,
-      },
-      select: publicUserSelect,
-    });
-
-    const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
-
-    await saveRefreshToken(user.id, refreshToken);
-    setRefreshCookie(res, refreshToken);
-
-    res.status(201).json({
-      success: true,
-      user,
-      accessToken,
-    });
-  } catch (error) {
-    if (isPrismaUniqueError(error)) {
-      res.status(409).json({
-        success: false,
-        message: "An account with this email already exists.",
-      });
-      return;
-    }
-
-    throw error;
-  }
+  res.status(201).json({
+    success: true,
+    user: result.user,
+    accessToken: result.accessToken,
+  });
 };
 
-// POST /auth/login
 export const login: RequestHandler = async (req, res) => {
-  const { email, password } = req.body as LoginInput;
+  const result = await loginUser(req.body as LoginInput);
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
-
-  if (!user) {
+  if (!result.success) {
     res.status(401).json({
       success: false,
       message: "Invalid email or password.",
@@ -120,155 +57,78 @@ export const login: RequestHandler = async (req, res) => {
     return;
   }
 
-  const isPasswordValid = await comparePassword(password, user.password);
-
-  if (!isPasswordValid) {
-    res.status(401).json({
-      success: false,
-      message: "Invalid email or password.",
-    });
-    return;
-  }
-
-  const accessToken = generateAccessToken(user.id);
-  const refreshToken = generateRefreshToken(user.id);
-
-  await saveRefreshToken(user.id, refreshToken);
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, result.refreshToken);
 
   res.status(200).json({
     success: true,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar,
-      createdAt: user.createdAt,
-    },
-    accessToken,
+    user: result.user,
+    accessToken: result.accessToken,
   });
 };
 
-// POST /auth/refresh
 export const refresh: RequestHandler = async (req, res) => {
   const refreshToken = getRefreshTokenFromCookie(req);
+  const result = await refreshUserTokens(refreshToken);
 
-  if (!refreshToken) {
-    res.status(401).json({
-      success: false,
-      message: "Refresh token is missing.",
-    });
-    return;
-  }
-
-  let payload: jwt.JwtPayload;
-
-  try {
-    const decoded = jwt.verify(refreshToken, getJwtSecret());
-
-    if (typeof decoded === "string") {
-      res.status(401).json({
-        success: false,
-        message: "Invalid refresh token.",
-      });
-      return;
+  if (!result.success) {
+    if (
+      result.reason === "session_expired" ||
+      result.reason === "already_used"
+    ) {
+      clearRefreshCookie(res);
     }
 
-    payload = decoded;
-  } catch {
-    res.status(401).json({
-      success: false,
-      message: "Invalid or expired refresh token.",
-    });
-    return;
-  }
-
-  if (payload.type !== "refresh" || typeof payload.sub !== "string") {
-    res.status(401).json({
-      success: false,
-      message: "Invalid refresh token.",
-    });
-    return;
-  }
-
-  const userId = payload.sub;
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      refreshTokenHash: true,
-      sessionExpiresAt: true,
-    },
-  });
-
-  if (!user?.refreshTokenHash || !user.sessionExpiresAt) {
-    res.status(401).json({
-      success: false,
-      message: "Session not found or revoked.",
-    });
-    return;
-  }
-
-  if (user.sessionExpiresAt <= new Date()) {
-    await revokeRefreshToken(userId);
-
-    clearRefreshCookie(res);
-
-    res.status(401).json({
-      success: false,
-      message: "Session expired. Please sign in again.",
-    });
-    return;
-  }
-
-  if (hashToken(refreshToken) !== user.refreshTokenHash) {
-    res.status(401).json({
-      success: false,
-      message: "Refresh token has been revoked.",
-    });
-    return;
-  }
-
-  const newAccessToken = generateAccessToken(userId);
-  const newRefreshToken = generateRefreshToken(userId);
-
-  const rotationResult = await prisma.user.updateMany({
-    where: {
-      id: userId,
-      refreshTokenHash: user.refreshTokenHash,
-      sessionExpiresAt: {
-        gt: new Date(),
+    const responses = {
+      missing: {
+        status: 401,
+        message: "Refresh token is missing.",
       },
-    },
-    data: {
-      refreshTokenHash: hashToken(newRefreshToken),
-      sessionExpiresAt: new Date(Date.now() + REFRESH_TOKEN_DURATION),
-    },
-  });
+      invalid: {
+        status: 401,
+        message: "Invalid refresh token.",
+      },
+      invalid_or_expired: {
+        status: 401,
+        message: "Invalid or expired refresh token.",
+      },
+      session_not_found: {
+        status: 401,
+        message: "Session not found or revoked.",
+      },
+      session_expired: {
+        status: 401,
+        message: "Session expired. Please sign in again.",
+      },
+      revoked: {
+        status: 401,
+        message: "Refresh token has been revoked.",
+      },
+      already_used: {
+        status: 401,
+        message: "Refresh token has already been used or revoked.",
+      },
+    } as const;
 
-  if (rotationResult.count !== 1) {
-    clearRefreshCookie(res);
+    const response = responses[result.reason];
 
-    res.status(401).json({
+    res.status(response.status).json({
       success: false,
-      message: "Refresh token has already been used or revoked.",
+      message: response.message,
     });
     return;
   }
 
-  setRefreshCookie(res, newRefreshToken);
+  setRefreshCookie(res, result.refreshToken);
 
   res.status(200).json({
     success: true,
-    accessToken: newAccessToken,
+    accessToken: result.accessToken,
   });
 };
 
-// POST /auth/logout
 export const logout: RequestHandler = async (req, res) => {
-  const userId = req.user!.sub;
+  await logoutUser(req.user!.sub);
 
-  await revokeRefreshToken(userId);
   clearRefreshCookie(res);
 
   res.status(204).end();
