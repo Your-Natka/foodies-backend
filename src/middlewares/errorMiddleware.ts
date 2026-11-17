@@ -13,13 +13,22 @@ const notFound = (req: Request, res: Response, next: NextFunction) => {
 
 const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   if (res.headersSent) {
-    next(error);
+    console.error("========== API ERROR ==========");
+    console.error("Method:", req.method);
+    console.error("URL:", req.originalUrl);
+    console.error("Error:", error);
+    console.error("Stack:", error.stack);
+    console.error("================================");
     return;
   }
 
   let statusCode = res.statusCode >= 400 ? res.statusCode : 500;
   const errorStatus = error.status ?? error.statusCode;
-  if (Number.isInteger(errorStatus) && errorStatus >= 400 && errorStatus <= 599) {
+  if (
+    Number.isInteger(errorStatus) &&
+    errorStatus >= 400 &&
+    errorStatus <= 599
+  ) {
     statusCode = errorStatus;
   }
 
@@ -30,7 +39,9 @@ const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message,
-    ...(statusCode < 500 && Array.isArray(error.errors) ? { errors: error.errors } : {}),
+    ...(statusCode < 500 && Array.isArray(error.errors)
+      ? { errors: error.errors }
+      : {}),
   });
 };
 
