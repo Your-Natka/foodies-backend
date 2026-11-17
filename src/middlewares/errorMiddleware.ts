@@ -12,18 +12,21 @@ const notFound = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
+  console.error("========== API ERROR ==========");
+  console.error("Method:", req.method);
+  console.error("URL:", req.originalUrl);
+  console.error("Error:", error);
+  console.error("Stack:", error.stack);
+  console.error("================================");
+
   if (res.headersSent) {
-    console.error("========== API ERROR ==========");
-    console.error("Method:", req.method);
-    console.error("URL:", req.originalUrl);
-    console.error("Error:", error);
-    console.error("Stack:", error.stack);
-    console.error("================================");
+    next(error);
     return;
   }
 
   let statusCode = res.statusCode >= 400 ? res.statusCode : 500;
   const errorStatus = error.status ?? error.statusCode;
+
   if (
     Number.isInteger(errorStatus) &&
     errorStatus >= 400 &&
@@ -33,8 +36,11 @@ const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   }
 
   let message = error.message || "Request failed";
+
   if (statusCode >= 500) message = "Internal Server Error";
-  if (error.type === "entity.parse.failed") message = "Invalid JSON body";
+  if (error.type === "entity.parse.failed") {
+    message = "Invalid JSON body";
+  }
 
   res.status(statusCode).json({
     success: false,
