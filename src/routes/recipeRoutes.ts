@@ -6,10 +6,18 @@ import {
   listPopularRecipes,
   listRecipes,
   removeRecipe,
+  updateRecipe,
 } from "../controllers/recipeController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import { uploadRecipePhoto } from "../middlewares/recipePhotoMiddleware.js";
-import { listFavorites, putFavorite, deleteFavorite } from "../controllers/favoriteController.js";
+import {
+  listFavorites,
+  putFavorite,
+  deleteFavorite,
+} from "../controllers/favoriteController.js";
+import {
+  uploadRecipePhoto,
+  uploadOptionalRecipePhoto,
+} from "../middlewares/recipePhotoMiddleware.js";
 
 const router = Router();
 
@@ -31,6 +39,7 @@ router.get("/favorites", authenticate, listFavorites);
 router.put("/:id/favorite", authenticate, putFavorite);
 router.delete("/:id/favorite", authenticate, deleteFavorite);
 router.get("/:id", optionalAuth, getRecipe);
+router.patch("/:id", authenticate, uploadOptionalRecipePhoto, updateRecipe);
 router.delete("/:id", authenticate, removeRecipe);
 
 export default router;

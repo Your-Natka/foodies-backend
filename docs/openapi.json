@@ -788,6 +788,77 @@
         ],
         "description": " Без Authorization запит публічний, isFavorite=false. Переданий токен має бути чинним access token, інакше 401. Відповіді мають Cache-Control: private, no-store та Vary: Authorization."
       },
+      "patch": {
+        "tags": ["Recipes"],
+        "summary": "Оновити власний рецепт",
+        "operationId": "updateRecipe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Частково оновлює власний рецепт. Можна передавати лише поля, які потрібно змінити. Непередані поля залишаються без змін. Усі передані поля повинні містити валідні непорожні значення. Фото необов'язкове. Якщо нове фото не передано, поточне фото залишається без змін.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecipeForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Рецепт успішно оновлено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "description": "Не можна оновлювати чужий рецепт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "success": false,
+                  "message": "You can only update your own recipes"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "description": "Конфлікт оновлення: рецепт був змінений іншим запитом"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "502": {
+            "$ref": "#/components/responses/502"
+          }
+        }
+      },
       "delete": {
         "tags": ["Recipes"],
         "summary": "Видалити власний рецепт",
@@ -1714,6 +1785,63 @@
           "ingredients": {
             "type": "string",
             "description": "JSON-масив {ingredientId, measure}. Щонайменше один наявний інгредієнт, без повторів; measure від 1 до 100 символів.",
+            "example": "[{\"ingredientId\":\"640c2dd963a319ea671e365c\",\"measure\":\"100 g\"}]"
+          }
+        }
+      },
+      "UpdateRecipeForm": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "Для PATCH достатньо передати одне або декілька полів. Непередані поля не змінюються. Усі передані поля повинні бути валідними та непорожніми.",
+        "properties": {
+          "photo": {
+            "type": "string",
+            "format": "binary",
+            "description": "Нове фото рецепту. Необов'язкове. Один JPEG, PNG або WebP до 5 MiB."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "example": "Salmon salad"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Salmon with fresh vegetables"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Назва наявної категорії",
+            "example": "Seafood"
+          },
+          "area": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Назва наявного регіону",
+            "example": "Greek"
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^[1-9]\\d*$",
+            "description": "Додатний час приготування у хвилинах",
+            "example": "30"
+          },
+          "instructions": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "example": "Cook the salmon and mix with vegetables."
+          },
+          "ingredients": {
+            "type": "string",
+            "minLength": 1,
+            "description": "JSON-рядок із масивом ingredientId та measure. Масив повинен містити щонайменше один наявний інгредієнт без повторів.",
             "example": "[{\"ingredientId\":\"640c2dd963a319ea671e365c\",\"measure\":\"100 g\"}]"
           }
         }
