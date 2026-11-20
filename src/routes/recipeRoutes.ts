@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { uploadLimiter } from "../middlewares/rateLimitMiddleware.ts";
 import {
   addRecipe,
   getRecipe,
@@ -32,14 +33,20 @@ const optionalAuth: typeof authenticate = (req, res, next) => {
 };
 
 router.get("/", optionalAuth, listRecipes);
-router.post("/", authenticate, uploadRecipePhoto, addRecipe);
+router.post("/", authenticate, uploadLimiter, uploadRecipePhoto, addRecipe);
 router.get("/popular", optionalAuth, listPopularRecipes);
 router.get("/own", authenticate, listOwnRecipes);
 router.get("/favorites", authenticate, listFavorites);
 router.put("/:id/favorite", authenticate, putFavorite);
 router.delete("/:id/favorite", authenticate, deleteFavorite);
 router.get("/:id", optionalAuth, getRecipe);
-router.patch("/:id", authenticate, uploadOptionalRecipePhoto, updateRecipe);
+router.patch(
+  "/:id",
+  authenticate,
+  uploadLimiter,
+  uploadOptionalRecipePhoto,
+  updateRecipe,
+);
 router.delete("/:id", authenticate, removeRecipe);
 
 export default router;

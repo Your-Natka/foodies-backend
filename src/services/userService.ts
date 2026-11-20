@@ -18,19 +18,7 @@ export const getCurrentUserProfile = async (userId: string) => {
           recipes: true,
           followers: true,
           following: true,
-        },
-      },
-      recipes: {
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          thumb: true,
-        },
-      },
-      favorites: {
-        select: {
-          recipeId: true,
+          favorites: true,
         },
       },
     },
@@ -44,10 +32,9 @@ export const getCurrentUserProfile = async (userId: string) => {
     email: user.email,
     avatar: user.avatar,
     recipesCount: user._count.recipes,
-    favoritesCount: user.favorites.length,
+    favoritesCount: user._count.favorites,
     followersCount: user._count.followers,
     followingCount: user._count.following,
-    recipes: user.recipes,
   };
 };
 
@@ -73,14 +60,6 @@ export const getUserProfileById = async (
         select: { followerId: true },
         take: 1,
       },
-      recipes: {
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          thumb: true,
-        },
-      },
     },
   });
 
@@ -94,7 +73,6 @@ export const getUserProfileById = async (
     recipesCount: user._count.recipes,
     followersCount: user._count.followers,
     isFollowing: user.followers.length > 0,
-    recipes: user.recipes,
   };
 };
 
