@@ -3,32 +3,32 @@
   "info": {
     "title": "Foodies API",
     "version": "1.0.0",
-    "description": "Foodies API — це RESTful API для платформи обміну рецептами. Він підтримує автентифікацію користувачів, керування рецептами, додавання рецептів до обраного, підписку на інших користувачів, а також пошук за категоріями, регіонами та інгредієнтами."
+    "description": "Foodies API is a RESTful API for a recipe-sharing platform. It supports user authentication, recipe management, adding recipes to favorites, following other users, and searching by categories, cuisine areas, and ingredients."
   },
   "tags": [
     {
       "name": "Auth",
-      "description": "Реєстрація, авторизація та керування сесією користувача"
+      "description": "User registration, authentication, and session management"
     },
     {
       "name": "Users",
-      "description": "Профілі користувачів, аватари, підписники та підписки"
+      "description": "User profiles, avatars, followers, and following"
     },
     {
       "name": "Reference Data",
-      "description": "Довідкова інформація: категорії рецептів, регіони походження страв, інгредієнти та відгуки користувачів."
+      "description": "Reference data: recipe categories, cuisine areas, ingredients, and user testimonials."
     },
     {
       "name": "Recipes",
-      "description": "Рецепти"
+      "description": "Recipes"
     }
   ],
   "paths": {
     "/auth/register": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Реєстрація користувача",
-        "description": "Створює обліковий запис користувача та повертає access token. Refresh token встановлюється в HTTP-only cookie.",
+        "summary": "Register a user",
+        "description": "Creates a user account and returns an access token. The refresh token is set in an HTTP-only cookie.",
         "operationId": "register",
         "requestBody": {
           "required": true,
@@ -59,10 +59,10 @@
         },
         "responses": {
           "201": {
-            "description": "Користувача успішно зареєстровано"
+            "description": "User registered successfully"
           },
           "409": {
-            "description": "Користувач із такою електронною поштою вже існує"
+            "description": "A user with this email address already exists"
           }
         }
       }
@@ -70,8 +70,8 @@
     "/auth/login": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Авторизація користувача",
-        "description": "Перевіряє облікові дані та повертає access token. Refresh token встановлюється в HTTP-only cookie.",
+        "summary": "Log in a user",
+        "description": "Validates the user's credentials and returns an access token. The refresh token is set in an HTTP-only cookie.",
         "operationId": "login",
         "requestBody": {
           "required": true,
@@ -98,10 +98,10 @@
         },
         "responses": {
           "200": {
-            "description": "Успішна авторизація"
+            "description": "Login successful"
           },
           "401": {
-            "description": "Невірна електронна пошта або пароль"
+            "description": "Invalid email address or password"
           }
         }
       }
@@ -109,8 +109,8 @@
     "/auth/refresh": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Оновити токен доступу",
-        "description": "Оновлює access token за допомогою refresh token, отриманого з HTTP-only cookie refreshToken. Refresh token не потрібно передавати в тілі запиту. Сервер перевіряє валідність токена, наявність активної сесії та строк її дії. У разі успіху генерує новий access token і новий refresh token, зберігає хеш нового refresh token у базі даних та встановлює його в cookie. Під час кожного успішного оновлення відбувається ротація refresh token.",
+        "summary": "Refresh access token",
+        "description": "Refreshes the access token using the refresh token from the HTTP-only refreshToken cookie. The refresh token must not be sent in the request body. The server validates the token and checks that the session exists and is active. On success, it generates a new access token and refresh token, stores the hash of the new refresh token in the database, and sets the new token in the cookie. The refresh token is rotated after every successful refresh.",
         "operationId": "refreshTokens",
         "security": [
           {
@@ -119,10 +119,10 @@
         ],
         "responses": {
           "200": {
-            "description": "Токен доступу успішно оновлено. Новий refresh token встановлено в HTTP-only cookie.",
+            "description": "Access token refreshed successfully. A new refresh token has been set in the HTTP-only cookie.",
             "headers": {
               "Set-Cookie": {
-                "description": "Нова cookie refreshToken із оновленим refresh token.",
+                "description": "A new refreshToken cookie containing the rotated refresh token.",
                 "schema": {
                   "type": "string"
                 }
@@ -140,7 +140,7 @@
                     },
                     "accessToken": {
                       "type": "string",
-                      "description": "Новий JWT токен доступу"
+                      "description": "New JWT access token"
                     }
                   }
                 },
@@ -152,7 +152,7 @@
             }
           },
           "401": {
-            "description": "Refresh token відсутній, недійсний, прострочений, відкликаний або сесія більше не активна.",
+            "description": "The refresh token is missing, invalid, expired, or revoked, or the session is no longer active.",
             "content": {
               "application/json": {
                 "schema": {
@@ -165,42 +165,42 @@
                     },
                     "message": {
                       "type": "string",
-                      "description": "Причина відмови в оновленні токенів",
+                      "description": "Reason the token refresh was rejected",
                       "example": "Invalid or expired refresh token."
                     }
                   }
                 },
                 "examples": {
                   "missingToken": {
-                    "summary": "Refresh token відсутній",
+                    "summary": "Refresh token is missing",
                     "value": {
                       "success": false,
                       "message": "Refresh token is missing."
                     }
                   },
                   "invalidToken": {
-                    "summary": "Недійсний або прострочений токен",
+                    "summary": "Invalid or expired token",
                     "value": {
                       "success": false,
                       "message": "Invalid or expired refresh token."
                     }
                   },
                   "expiredSession": {
-                    "summary": "Сесія завершилася",
+                    "summary": "Session has expired",
                     "value": {
                       "success": false,
                       "message": "Session expired. Please sign in again."
                     }
                   },
                   "revokedToken": {
-                    "summary": "Токен відкликано",
+                    "summary": "Token has been revoked",
                     "value": {
                       "success": false,
                       "message": "Refresh token has been revoked."
                     }
                   },
                   "reusedToken": {
-                    "summary": "Токен уже використано",
+                    "summary": "Token has already been used",
                     "value": {
                       "success": false,
                       "message": "Refresh token has already been used or revoked."
@@ -216,8 +216,8 @@
     "/auth/logout": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Вихід із системи",
-        "description": "Відкликає refresh token поточного користувача та очищає cookie.",
+        "summary": "Log out",
+        "description": "Revokes the current user's refresh token and clears the cookie.",
         "operationId": "logout",
         "security": [
           {
@@ -226,7 +226,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Успішний вихід із системи"
+            "description": "Logout successful"
           },
           "401": {
             "$ref": "#/components/responses/401"
@@ -237,8 +237,8 @@
     "/users/current": {
       "get": {
         "tags": ["Users"],
-        "summary": "Профіль поточного користувача",
-        "description": "Повертає профіль авторизованого користувача, кількість рецептів, обраного, підписників і підписок, а також список його рецептів.",
+        "summary": "Current user's profile",
+        "description": "Returns the authenticated user's profile and counts of their recipes, favorites, followers, and following. Recipe data is not included; use the recipe endpoints to retrieve recipes.",
         "operationId": "getCurrentUser",
         "security": [
           {
@@ -247,7 +247,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Профіль користувача успішно отримано",
+            "description": "User profile retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -286,12 +286,6 @@
                     "followingCount": {
                       "type": "integer",
                       "example": 10
-                    },
-                    "recipes": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/UserRecipe"
-                      }
                     }
                   }
                 }
@@ -302,7 +296,7 @@
             "$ref": "#/components/responses/401"
           },
           "404": {
-            "description": "Користувача не знайдено"
+            "description": "User not found"
           }
         }
       }
@@ -310,8 +304,8 @@
     "/users/{id}": {
       "get": {
         "tags": ["Users"],
-        "summary": "Профіль користувача за ID",
-        "description": "Повертає публічний профіль користувача, кількість його рецептів і підписників, статус підписки поточного користувача та список рецептів.",
+        "summary": "Get user profile by ID",
+        "description": "Returns the user's public profile, recipe and follower counts, and whether the authenticated user follows this profile. Recipe data is not included; use the recipe endpoints to retrieve recipes.",
         "operationId": "getUserById",
         "security": [
           {
@@ -323,7 +317,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "ID користувача",
+            "description": "User ID",
             "schema": {
               "type": "string",
               "pattern": "^[a-fA-F0-9]{24}$",
@@ -333,7 +327,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Профіль користувача успішно отримано",
+            "description": "User profile retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -361,12 +355,6 @@
                     },
                     "isFollowing": {
                       "type": "boolean"
-                    },
-                    "recipes": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/UserRecipe"
-                      }
                     }
                   }
                 }
@@ -380,7 +368,7 @@
             "$ref": "#/components/responses/401"
           },
           "404": {
-            "description": "Користувача не знайдено"
+            "description": "User not found"
           }
         }
       }
@@ -388,8 +376,8 @@
     "/users/current/avatar": {
       "patch": {
         "tags": ["Users"],
-        "summary": "Оновити аватар користувача",
-        "description": "Завантажує новий аватар користувача до Cloudinary та оновлює посилання на нього в профілі.",
+        "summary": "Update user avatar",
+        "description": "Uploads a new user avatar to Cloudinary and updates the avatar URL in the profile.",
         "operationId": "updateAvatar",
         "security": [
           {
@@ -407,7 +395,7 @@
                   "avatar": {
                     "type": "string",
                     "format": "binary",
-                    "description": "Файл нового аватара"
+                    "description": "The new avatar image file"
                   }
                 }
               }
@@ -416,7 +404,7 @@
         },
         "responses": {
           "200": {
-            "description": "Аватар успішно оновлено",
+            "description": "Avatar updated successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -457,7 +445,7 @@
             }
           },
           "400": {
-            "description": "Файл аватара не передано",
+            "description": "No avatar file was provided",
             "content": {
               "application/json": {
                 "schema": {
@@ -482,15 +470,15 @@
     "/recipes": {
       "get": {
         "tags": ["Recipes"],
-        "summary": "Каталог рецептів",
+        "summary": "Recipe catalog",
         "operationId": "listRecipes",
-        "description": "Фільтри діють разом. Порядок createdAt DESC, id DESC. Порожні фільтри ігноруються; невідомі та повторні параметри повертають 400. Без Authorization запит публічний, isFavorite=false. Переданий токен має бути чинним access token, інакше 401. Відповіді мають Cache-Control: private, no-store та Vary: Authorization.",
+        "description": "Filters are combined. Results are ordered by createdAt DESC, then id DESC. Empty filters are ignored; unknown or duplicate query parameters return 400. Requests without Authorization are public and return isFavorite=false. If a token is provided, it must be a valid access token; otherwise, the response is 401. Responses include Cache-Control: private, no-store and Vary: Authorization.",
         "parameters": [
           {
             "name": "category",
             "in": "query",
             "required": false,
-            "description": "Точна назва з довідника.",
+            "description": "Exact name from the reference data.",
             "schema": {
               "type": "string",
               "maxLength": 100
@@ -500,7 +488,7 @@
             "name": "area",
             "in": "query",
             "required": false,
-            "description": "Точна назва з довідника.",
+            "description": "Exact name from the reference data.",
             "schema": {
               "type": "string",
               "maxLength": 100
@@ -510,7 +498,7 @@
             "name": "ingredientId",
             "in": "query",
             "required": false,
-            "description": "ID інгредієнта.",
+            "description": "Ingredient ID.",
             "schema": {
               "type": "string",
               "pattern": "^[a-fA-F0-9]{24}$",
@@ -521,7 +509,7 @@
             "name": "ownerId",
             "in": "query",
             "required": false,
-            "description": "ID автора для публічного списку його рецептів.",
+            "description": "Owner ID for a public list of that user's recipes.",
             "schema": {
               "type": "string",
               "pattern": "^[a-fA-F0-9]{24}$",
@@ -532,7 +520,7 @@
             "name": "page",
             "in": "query",
             "required": false,
-            "description": "Номер сторінки; зсув (page - 1) * limit не більше 2147483647.",
+            "description": "Page number; the offset (page - 1) * limit must not exceed 2147483647.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -544,7 +532,7 @@
             "name": "limit",
             "in": "query",
             "required": false,
-            "description": "Кількість рецептів на сторінці.",
+            "description": "Number of recipes per page.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -555,7 +543,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Список рецептів та серверна пагінація",
+            "description": "Recipe list with server-side pagination",
             "content": {
               "application/json": {
                 "schema": {
@@ -583,14 +571,14 @@
       },
       "post": {
         "tags": ["Recipes"],
-        "summary": "Створити власний рецепт",
+        "summary": "Create a recipe",
         "operationId": "addRecipe",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Власник береться з access-токена. Рецепт та інгредієнти зберігаються разом. Якщо запис у БД не вдався, виконується видалення завантаженого фото.",
+        "description": "The owner is determined from the access token. The recipe and its ingredients are saved together. If the database operation fails, the uploaded image is deleted.",
         "requestBody": {
           "required": true,
           "content": {
@@ -603,7 +591,7 @@
         },
         "responses": {
           "201": {
-            "description": "Створений рецепт з ID, автором та інгредієнтами",
+            "description": "Created recipe, including its ID, owner, and ingredients",
             "content": {
               "application/json": {
                 "schema": {
@@ -636,12 +624,12 @@
     "/recipes/popular": {
       "get": {
         "tags": ["Recipes"],
-        "summary": "Популярні рецепти",
+        "summary": "Popular recipes",
         "operationId": "listPopularRecipes",
-        "description": "До чотирьох рецептів за кількістю різних користувачів, які додали їх в обране. Далі createdAt DESC, id DESC. Query-параметри не приймаються. Без Authorization запит публічний, isFavorite=false. Переданий токен має бути чинним access token, інакше 401. Відповіді мають Cache-Control: private, no-store та Vary: Authorization.",
+        "description": "Returns up to four recipes ranked by the number of distinct users who added them to favorites. Ties are ordered by createdAt DESC, then id DESC. Query parameters are not accepted. Requests without Authorization are public and return isFavorite=false. If a token is provided, it must be a valid access token; otherwise, the response is 401. Responses include Cache-Control: private, no-store and Vary: Authorization.",
         "responses": {
           "200": {
-            "description": "До чотирьох карток",
+            "description": "Up to four recipe cards",
             "content": {
               "application/json": {
                 "schema": {
@@ -681,20 +669,20 @@
     "/recipes/own": {
       "get": {
         "tags": ["Recipes"],
-        "summary": "Власні рецепти",
+        "summary": "My recipes",
         "operationId": "listOwnRecipes",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Список і total містять тільки рецепти поточного користувача. Приймаються лише page та limit. Порядок createdAt DESC, id DESC.",
+        "description": "The list and total include only recipes owned by the authenticated user. Only page and limit parameters are accepted. Results are ordered by createdAt DESC, then id DESC.",
         "parameters": [
           {
             "name": "page",
             "in": "query",
             "required": false,
-            "description": "Номер сторінки; зсув (page - 1) * limit не більше 2147483647.",
+            "description": "Page number; the offset (page - 1) * limit must not exceed 2147483647.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -706,7 +694,7 @@
             "name": "limit",
             "in": "query",
             "required": false,
-            "description": "Кількість рецептів на сторінці.",
+            "description": "Number of recipes per page.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -717,7 +705,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Власні рецепти та пагінація",
+            "description": "User's recipes with pagination",
             "content": {
               "application/json": {
                 "schema": {
@@ -749,16 +737,16 @@
             "pattern": "^[a-fA-F0-9]{24}$",
             "example": "6462a8f74c3d0ddd28897fb8"
           },
-          "description": "24 шістнадцяткові символи. Великі літери приймаються."
+          "description": "A 24-character hexadecimal ID. Uppercase letters are accepted."
         }
       ],
       "get": {
         "tags": ["Recipes"],
-        "summary": "Деталі рецепта",
+        "summary": "Recipe details",
         "operationId": "getRecipe",
         "responses": {
           "200": {
-            "description": "Рецепт з автором та інгредієнтами",
+            "description": "Recipe with its owner and ingredients",
             "content": {
               "application/json": {
                 "schema": {
@@ -786,18 +774,18 @@
             "bearerAuth": []
           }
         ],
-        "description": " Без Authorization запит публічний, isFavorite=false. Переданий токен має бути чинним access token, інакше 401. Відповіді мають Cache-Control: private, no-store та Vary: Authorization."
+        "description": "Requests without Authorization are public and return isFavorite=false. If a token is provided, it must be a valid access token; otherwise, the response is 401. Responses include Cache-Control: private, no-store and Vary: Authorization."
       },
       "patch": {
         "tags": ["Recipes"],
-        "summary": "Оновити власний рецепт",
+        "summary": "Update your recipe",
         "operationId": "updateRecipe",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Частково оновлює власний рецепт. Можна передавати лише поля, які потрібно змінити. Непередані поля залишаються без змін. Усі передані поля повинні містити валідні непорожні значення. Фото необов'язкове. Якщо нове фото не передано, поточне фото залишається без змін.",
+        "description": "Partially updates a recipe owned by the authenticated user. Include only the fields to be changed; omitted fields remain unchanged. All supplied fields must contain valid, non-empty values. The photo is optional. If no new photo is provided, the existing photo remains unchanged.",
         "requestBody": {
           "required": true,
           "content": {
@@ -810,7 +798,7 @@
         },
         "responses": {
           "200": {
-            "description": "Рецепт успішно оновлено",
+            "description": "Recipe updated successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -826,7 +814,7 @@
             "$ref": "#/components/responses/401"
           },
           "403": {
-            "description": "Не можна оновлювати чужий рецепт",
+            "description": "You cannot update another user's recipe",
             "content": {
               "application/json": {
                 "schema": {
@@ -843,7 +831,7 @@
             "$ref": "#/components/responses/404"
           },
           "409": {
-            "description": "Конфлікт оновлення: рецепт був змінений іншим запитом"
+            "description": "Update conflict: the recipe was modified by another request"
           },
           "413": {
             "$ref": "#/components/responses/413"
@@ -861,17 +849,17 @@
       },
       "delete": {
         "tags": ["Recipes"],
-        "summary": "Видалити власний рецепт",
+        "summary": "Delete your recipe",
         "operationId": "removeRecipe",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Видаляє рецепт та зв’язки з інгредієнтами й обраним. Довідник інгредієнтів і користувачі залишаються. Повторне видалення повертає 404. Фото, завантажене цим API, також видаляється з Cloudinary. Якщо сервіс зображень недоступний, рецепт залишається видаленим, а public ID фото записується в журнал для повторного очищення.",
+        "description": "Deletes the recipe and its ingredient and favorite relationships. Ingredient reference records and users are retained. Repeated deletion returns 404. The photo uploaded through this API is also deleted from Cloudinary. If the image service is unavailable, the recipe remains deleted and the photo's public ID is logged for later cleanup.",
         "responses": {
           "204": {
-            "description": "Рецепт видалено, тіло відсутнє"
+            "description": "Recipe deleted; response body is empty"
           },
           "400": {
             "$ref": "#/components/responses/400"
@@ -899,14 +887,14 @@
       ],
       "get": {
         "tags": ["Users"],
-        "summary": "Підписники профілю",
+        "summary": "Profile followers",
         "operationId": "listFollowers",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Підписники вказаного користувача за зростанням ID. Стан isFollowing визначається для власника access token.",
+        "description": "Followers of the specified user, ordered by ID ascending. The isFollowing state is determined for the owner of the access token.",
         "parameters": [
           {
             "$ref": "#/components/parameters/FollowPage"
@@ -917,7 +905,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Список підписників із пагінацією",
+            "description": "Paginated list of followers",
             "content": {
               "application/json": {
                 "schema": {
@@ -944,14 +932,14 @@
     "/users/following": {
       "get": {
         "tags": ["Users"],
-        "summary": "Мої підписки",
+        "summary": "Following",
         "operationId": "listFollowing",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Підписки власника access token за зростанням ID.",
+        "description": "Users followed by the owner of the access token, ordered by ID ascending.",
         "parameters": [
           {
             "$ref": "#/components/parameters/FollowPage"
@@ -962,7 +950,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Список підписок із пагінацією",
+            "description": "Paginated list of followed users",
             "content": {
               "application/json": {
                 "schema": {
@@ -994,17 +982,17 @@
       ],
       "put": {
         "tags": ["Users"],
-        "summary": "Підписатися на користувача",
+        "summary": "Follow a user",
         "operationId": "followUser",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Створює підписку від власника access token. Підписка на власний профіль повертає 400.",
+        "description": "Creates a follow relationship for the owner of the access token. Following your own profile returns 400.",
         "responses": {
           "200": {
-            "description": "Підписка вже існує",
+            "description": "Follow relationship already exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -1014,7 +1002,7 @@
             }
           },
           "201": {
-            "description": "Підписку створено",
+            "description": "Follow relationship created",
             "content": {
               "application/json": {
                 "schema": {
@@ -1039,17 +1027,17 @@
       },
       "delete": {
         "tags": ["Users"],
-        "summary": "Відписатися від користувача",
+        "summary": "Unfollow a user",
         "operationId": "unfollowUser",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Видаляє підписку власника access token. Відсутній зв’язок також повертає 204.",
+        "description": "Deletes the follow relationship belonging to the owner of the access token. A missing relationship also returns 204.",
         "responses": {
           "204": {
-            "description": "Підписки немає"
+            "description": "No follow relationship exists"
           },
           "400": {
             "$ref": "#/components/responses/400"
@@ -1069,12 +1057,12 @@
     "/categories": {
       "get": {
         "tags": ["Reference Data"],
-        "summary": "Отримати список категорій рецептів",
-        "description": "Повертає список усіх категорій рецептів, відсортованих за назвою в алфавітному порядку, а потім за ID.",
+        "summary": "Get recipe categories",
+        "description": "Returns all recipe categories, sorted alphabetically by name and then by ID.",
         "operationId": "getCategories",
         "responses": {
           "200": {
-            "description": "Список категорій успішно отримано",
+            "description": "Categories retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -1110,12 +1098,12 @@
     "/areas": {
       "get": {
         "tags": ["Reference Data"],
-        "summary": "Отримати список регіонів походження страв",
-        "description": "Повертає список усіх регіонів походження страв, відсортованих за назвою в алфавітному порядку, а потім за ID.",
+        "summary": "Get cuisine areas",
+        "description": "Returns all cuisine areas, sorted alphabetically by name and then by ID.",
         "operationId": "getAreas",
         "responses": {
           "200": {
-            "description": "Список регіонів успішно отримано",
+            "description": "Cuisine areas retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -1159,12 +1147,12 @@
     "/ingredients": {
       "get": {
         "tags": ["Reference Data"],
-        "summary": "Отримати список інгредієнтів",
-        "description": "Повертає список усіх інгредієнтів із назвами та зображеннями. Результати відсортовані за назвою в алфавітному порядку, а потім за ID.",
+        "summary": "Get ingredients",
+        "description": "Returns all ingredients with their names and images. Results are sorted alphabetically by name and then by ID.",
         "operationId": "getIngredients",
         "responses": {
           "200": {
-            "description": "Список інгредієнтів успішно отримано",
+            "description": "Ingredients retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -1202,12 +1190,12 @@
     "/testimonials": {
       "get": {
         "tags": ["Reference Data"],
-        "summary": "Отримати список відгуків",
-        "description": "Повертає список відгуків користувачів разом з інформацією про їхніх авторів. Результати відсортовані за ID відгуку в порядку зростання.",
+        "summary": "Get testimonials",
+        "description": "Returns user testimonials together with information about their authors. Results are sorted by testimonial ID in ascending order.",
         "operationId": "getTestimonials",
         "responses": {
           "200": {
-            "description": "Список відгуків успішно отримано",
+            "description": "Testimonials retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -1243,20 +1231,20 @@
     "/recipes/favorites": {
       "get": {
         "tags": ["Recipes"],
-        "summary": "Обрані рецепти",
+        "summary": "Favorite recipes",
         "operationId": "listFavorites",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Лише обране поточного користувача. page=1, limit=9, максимум 100. Порядок createdAt DESC, id DESC. isFavorite=true. Невідомі та повторні query-параметри повертають 400.",
+        "description": "Returns only the authenticated user's favorites. Defaults: page=1 and limit=9; maximum limit is 100. Results are ordered by createdAt DESC, then id DESC. isFavorite is always true. Unknown or duplicate query parameters return 400.",
         "parameters": [
           {
             "name": "page",
             "in": "query",
             "required": false,
-            "description": "Номер сторінки; зсув (page - 1) * limit не більше 2147483647.",
+            "description": "Page number; the offset (page - 1) * limit must not exceed 2147483647.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -1268,7 +1256,7 @@
             "name": "limit",
             "in": "query",
             "required": false,
-            "description": "Кількість рецептів на сторінці.",
+            "description": "Number of recipes per page.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -1279,7 +1267,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Обрані рецепти та серверна пагінація",
+            "description": "Favorite recipes with server-side pagination",
             "content": {
               "application/json": {
                 "schema": {
@@ -1311,7 +1299,7 @@
             "pattern": "^[a-fA-F0-9]{24}$",
             "example": "6462a8f74c3d0ddd28897fb8"
           },
-          "description": "24 шістнадцяткові символи. Великі літери приймаються."
+          "description": "A 24-character hexadecimal ID. Uppercase letters are accepted."
         }
       ],
       "put": {
@@ -1332,7 +1320,7 @@
             "$ref": "#/components/responses/500"
           },
           "200": {
-            "description": "Рецепт в обраному",
+            "description": "Recipe is in favorites",
             "content": {
               "application/json": {
                 "schema": {
@@ -1365,7 +1353,7 @@
             }
           },
           "201": {
-            "description": "Рецепт в обраному",
+            "description": "Recipe is in favorites",
             "content": {
               "application/json": {
                 "schema": {
@@ -1401,9 +1389,9 @@
             "$ref": "#/components/responses/404"
           }
         },
-        "summary": "Додати рецепт до обраного",
+        "summary": "Add a recipe to favorites",
         "operationId": "putFavorite",
-        "description": "Без тіла. Власник береться з access token. Перший PUT повертає 201, повторний 200, зокрема при одночасних запитах. Відсутній рецепт: 404."
+        "description": "No request body is required. The owner is determined from the access token. The first PUT returns 201; subsequent requests return 200, including concurrent requests. If the recipe does not exist, 404 is returned."
       },
       "delete": {
         "tags": ["Recipes"],
@@ -1423,12 +1411,12 @@
             "$ref": "#/components/responses/500"
           },
           "204": {
-            "description": "Зв’язок відсутній, без тіла відповіді"
+            "description": "Relationship does not exist; response body is empty"
           }
         },
-        "summary": "Прибрати рецепт з обраного",
+        "summary": "Remove a recipe from favorites",
         "operationId": "deleteFavorite",
-        "description": "Видаляє тільки зв’язок поточного користувача. 204 також при повторному запиті або після видалення самого рецепта."
+        "description": "Deletes only the current user's favorite relationship. Returns 204 for repeated requests and when the recipe itself has already been deleted."
       }
     }
   },
@@ -1443,7 +1431,7 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "refreshToken",
-        "description": "HTTP-only cookie з refresh token. Автоматично встановлюється сервером під час реєстрації або входу."
+        "description": "HTTP-only cookie containing the refresh token. Automatically set by the server during registration or login."
       }
     },
     "schemas": {
@@ -1472,12 +1460,12 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Унікальний ідентифікатор категорії",
+            "description": "Unique category identifier",
             "example": "6462a6cd4c3d0ddd28897fb8"
           },
           "name": {
             "type": "string",
-            "description": "Назва категорії рецепту",
+            "description": "Recipe category name",
             "example": "Seafood"
           }
         }
@@ -1488,12 +1476,12 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Унікальний ідентифікатор регіону",
+            "description": "Unique cuisine area identifier",
             "example": "6462a6f04c3d0ddd28897fb8"
           },
           "name": {
             "type": "string",
-            "description": "Назва регіону походження страв",
+            "description": "Cuisine area name",
             "example": "Ukrainian"
           }
         }
@@ -1504,17 +1492,17 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Унікальний ідентифікатор інгредієнта",
+            "description": "Unique ingredient identifier",
             "example": "640c2dd963a319ea671e36"
           },
           "name": {
             "type": "string",
-            "description": "Назва інгредієнта",
+            "description": "Ingredient name",
             "example": "Avocado"
           },
           "img": {
             "type": "string",
-            "description": "URL зображення інгредієнта",
+            "description": "Ingredient image URL",
             "example": "https://example.com/avocado.jpg"
           }
         }
@@ -1525,52 +1513,30 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Унікальний ідентифікатор відгуку",
+            "description": "Unique testimonial identifier",
             "example": "647495d0c825f1570b041801"
           },
           "testimonial": {
             "type": "string",
-            "description": "Текст відгуку користувача",
+            "description": "User testimonial text",
             "example": "Foodies has transformed the way I cook!"
           },
           "owner": {
             "type": "object",
             "required": ["id", "name"],
-            "description": "Автор відгуку",
+            "description": "Testimonial author",
             "properties": {
               "id": {
                 "type": "string",
-                "description": "Ідентифікатор автора",
+                "description": "Author ID",
                 "example": "64c8d958249fae54bae90b01"
               },
               "name": {
                 "type": "string",
-                "description": "Ім'я автора",
+                "description": "Author name",
                 "example": "Anna"
               }
             }
-          }
-        }
-      },
-      "UserRecipe": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "6462a8f74c3d0ddd28897fb8"
-          },
-          "title": {
-            "type": "string",
-            "example": "Salmon salad"
-          },
-          "description": {
-            "type": "string",
-            "example": "Salmon with fresh vegetables"
-          },
-          "thumb": {
-            "type": "string",
-            "format": "uri",
-            "example": "https://example.com/recipe.jpg"
           }
         }
       },
@@ -1628,7 +1594,7 @@
           },
           "isFavorite": {
             "type": "boolean",
-            "description": "false для гостя; для авторизованого користувача залежить від його обраного.",
+            "description": "false for guests; for authenticated users, this reflects whether the recipe is in their favorites.",
             "example": false
           }
         }
@@ -1742,7 +1708,7 @@
           "photo": {
             "type": "string",
             "format": "binary",
-            "description": "Один JPEG, PNG або WebP до 5 МіБ. Формат перевіряється за MIME та сигнатурою."
+            "description": "One JPEG, PNG, or WebP image up to 5 MiB. The format is validated using both the MIME type and file signature."
           },
           "title": {
             "type": "string",
@@ -1760,14 +1726,14 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100,
-            "description": "Назва наявної категорії",
+            "description": "Name of an existing category",
             "example": "Seafood"
           },
           "area": {
             "type": "string",
             "minLength": 1,
             "maxLength": 100,
-            "description": "Назва наявного регіону",
+            "description": "Name of an existing cuisine area",
             "example": "Greek"
           },
           "time": {
@@ -1784,7 +1750,7 @@
           },
           "ingredients": {
             "type": "string",
-            "description": "JSON-масив {ingredientId, measure}. Щонайменше один наявний інгредієнт, без повторів; measure від 1 до 100 символів.",
+            "description": "JSON array of {ingredientId, measure}. Must contain at least one existing ingredient with no duplicates; measure must be 1–100 characters.",
             "example": "[{\"ingredientId\":\"640c2dd963a319ea671e365c\",\"measure\":\"100 g\"}]"
           }
         }
@@ -1793,12 +1759,12 @@
         "type": "object",
         "additionalProperties": false,
         "minProperties": 1,
-        "description": "Для PATCH достатньо передати одне або декілька полів. Непередані поля не змінюються. Усі передані поля повинні бути валідними та непорожніми.",
+        "description": "For PATCH, provide one or more fields. Omitted fields remain unchanged. All supplied fields must be valid and non-empty.",
         "properties": {
           "photo": {
             "type": "string",
             "format": "binary",
-            "description": "Нове фото рецепту. Необов'язкове. Один JPEG, PNG або WebP до 5 MiB."
+            "description": "New recipe image. Optional. One JPEG, PNG, or WebP image up to 5 MiB."
           },
           "title": {
             "type": "string",
@@ -1816,20 +1782,20 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100,
-            "description": "Назва наявної категорії",
+            "description": "Name of an existing category",
             "example": "Seafood"
           },
           "area": {
             "type": "string",
             "minLength": 1,
             "maxLength": 100,
-            "description": "Назва наявного регіону",
+            "description": "Name of an existing cuisine area",
             "example": "Greek"
           },
           "time": {
             "type": "string",
             "pattern": "^[1-9]\\d*$",
-            "description": "Додатний час приготування у хвилинах",
+            "description": "Positive cooking time in minutes",
             "example": "30"
           },
           "instructions": {
@@ -1841,7 +1807,7 @@
           "ingredients": {
             "type": "string",
             "minLength": 1,
-            "description": "JSON-рядок із масивом ingredientId та measure. Масив повинен містити щонайменше один наявний інгредієнт без повторів.",
+            "description": "JSON string containing an array of ingredientId and measure objects. The array must contain at least one existing ingredient with no duplicates.",
             "example": "[{\"ingredientId\":\"640c2dd963a319ea671e365c\",\"measure\":\"100 g\"}]"
           }
         }
@@ -1906,7 +1872,7 @@
           "recipes": {
             "type": "array",
             "maxItems": 4,
-            "description": "Останні рецепти за createdAt DESC, id DESC.",
+            "description": "Most recent recipes, ordered by createdAt DESC, then id DESC.",
             "items": {
               "type": "object",
               "required": ["id", "thumb"],
@@ -1961,7 +1927,7 @@
     },
     "responses": {
       "400": {
-        "description": "Некоректні параметри або поля форми",
+        "description": "Invalid parameters or form fields",
         "content": {
           "application/json": {
             "schema": {
@@ -1981,7 +1947,7 @@
         }
       },
       "401": {
-        "description": "Потрібна авторизація або токен недійсний",
+        "description": "Authentication is required or the token is invalid",
         "content": {
           "application/json": {
             "schema": {
@@ -1995,7 +1961,7 @@
         }
       },
       "403": {
-        "description": "Не можна видаляти чужий рецепт",
+        "description": "You cannot delete another user's recipe",
         "content": {
           "application/json": {
             "schema": {
@@ -2009,7 +1975,7 @@
         }
       },
       "404": {
-        "description": "Рецепт не знайдено",
+        "description": "Recipe not found",
         "content": {
           "application/json": {
             "schema": {
@@ -2023,7 +1989,7 @@
         }
       },
       "413": {
-        "description": "Фото перевищує 5 МіБ",
+        "description": "Image exceeds 5 MiB",
         "content": {
           "application/json": {
             "schema": {
@@ -2037,7 +2003,7 @@
         }
       },
       "415": {
-        "description": "Потрібен multipart/form-data",
+        "description": "multipart/form-data is required",
         "content": {
           "application/json": {
             "schema": {
@@ -2051,7 +2017,7 @@
         }
       },
       "500": {
-        "description": "Внутрішня помилка сервера",
+        "description": "Internal server error",
         "content": {
           "application/json": {
             "schema": {
@@ -2065,7 +2031,7 @@
         }
       },
       "502": {
-        "description": "Сервіс зображень недоступний",
+        "description": "Image service is unavailable",
         "content": {
           "application/json": {
             "schema": {
@@ -2084,7 +2050,7 @@
         "name": "id",
         "in": "path",
         "required": true,
-        "description": "ID профілю.",
+        "description": "Profile ID.",
         "schema": {
           "type": "string",
           "pattern": "^[a-fA-F0-9]{24}$"
@@ -2093,7 +2059,7 @@
       "FollowPage": {
         "name": "page",
         "in": "query",
-        "description": "Номер сторінки. Зсув (page - 1) * limit не може перевищувати 2147483647.",
+        "description": "Page number. The offset (page - 1) * limit must not exceed 2147483647.",
         "schema": {
           "type": "integer",
           "minimum": 1,
@@ -2104,7 +2070,7 @@
       "FollowLimit": {
         "name": "limit",
         "in": "query",
-        "description": "Кількість карток на сторінці.",
+        "description": "Number of cards per page.",
         "schema": {
           "type": "integer",
           "minimum": 1,
