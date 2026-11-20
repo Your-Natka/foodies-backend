@@ -2,6 +2,7 @@ import multer from "multer";
 
 export const upload = multer({
   storage: multer.memoryStorage(),
+  // limit image size to max 5M
   limits: {
     fileSize: 5 * 1024 * 1024,
   },
@@ -11,7 +12,12 @@ export const upload = multer({
     if (allowedMimeTypes.includes(file.mimetype)) {
       callback(null, true);
     } else {
-      callback(new Error("Only JPEG, PNG and WebP images are allowed"));
+      const error = new Error(
+        "Only JPEG, PNG and WebP images are allowed",
+      ) as Error & { status: number };
+
+      error.status = 400;
+      callback(error);
     }
   },
 });

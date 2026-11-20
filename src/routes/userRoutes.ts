@@ -6,6 +6,7 @@ import {
 } from "../controllers/userController.ts";
 import { authenticate } from "../middlewares/authMiddleware.ts";
 import { upload } from "../middlewares/uploadMiddleware.ts";
+import { uploadLimiter } from "../middlewares/rateLimitMiddleware.ts";
 import followRouter from "./followRoutes.ts";
 
 const router = Router();
@@ -13,9 +14,11 @@ const router = Router();
 router.get("/current", authenticate, getCurrentUser);
 router.use(followRouter);
 router.get("/:id", authenticate, getUserById);
+
 router.patch(
   "/current/avatar",
   authenticate,
+  uploadLimiter,
   upload.single("avatar"),
   updateAvatar,
 );

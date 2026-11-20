@@ -1,5 +1,8 @@
 import { Router } from "express";
-
+import {
+  loginLimiter,
+  registerLimiter,
+} from "../middlewares/rateLimitMiddleware.ts";
 import {
   register,
   login,
@@ -14,8 +17,14 @@ import { registerSchema, loginSchema } from "../validators/authValidator.ts";
 
 const router = Router();
 
-router.post("/register", validateBody(registerSchema), register);
-router.post("/login", validateBody(loginSchema), login);
+router.post(
+  "/register",
+  registerLimiter,
+  validateBody(registerSchema),
+  register,
+);
+
+router.post("/login", loginLimiter, validateBody(loginSchema), login);
 router.post("/refresh", refresh);
 router.post("/logout", authenticate, logout);
 
