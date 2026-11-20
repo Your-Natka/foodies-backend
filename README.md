@@ -1,276 +1,285 @@
 # Foodies Backend
 
-RESTful API for **Foodies**, a recipe-sharing platform where users can discover recipes, share their own creations, save favorites, and follow other users.
-
-## Overview
-
-Foodies Backend provides the server-side functionality for the Foodies application. It handles user authentication, recipe management, user profiles, social interactions, and reference data.
-
-The API is built with Node.js, Express 5, TypeScript, Prisma ORM, and PostgreSQL.
+The backend API for **Foodies**, a recipe-sharing application. It provides authentication and session management, user profiles and social relationships, recipe discovery and management, favorites, and reference data.
 
 ## Features
 
-### Authentication
+### Authentication and sessions
 
 - User registration and login.
-- JWT-based authentication using access tokens.
-- Refresh token rotation.
-- HTTP-only cookie for refresh token storage.
-- Session validation and revocation.
-- Logout functionality.
+- JWT access tokens for protected endpoints.
+- HTTP-only refresh-token cookies with refresh-token rotation.
+- Session validation, refresh, and logout/revocation.
+- Password hashing with bcrypt and request validation.
 
-### Users
+### User profiles and social features
 
-- Retrieve the current user's profile.
-- View other users' profiles.
-- Update the current user's avatar.
-- View user recipes and profile statistics.
+- Retrieve the authenticated user's profile and profile statistics.
+- Retrieve another user's profile by ID.
+- Update the authenticated user's avatar.
 - Follow and unfollow users.
-- Retrieve followers and following lists.
+- Retrieve paginated follower and following lists.
+- Profile responses expose recipe counts; recipe lists are retrieved through the recipe endpoints.
 
 ### Recipes
 
-- Browse the recipe catalog.
-- Filter recipes by category, area, ingredient, and owner.
-- Retrieve recipe details.
-- View popular recipes.
-- Retrieve recipes created by the current user.
-- Create and delete recipes.
-- Upload recipe images.
-- Add and remove recipes from favorites.
-- Retrieve the current user's favorite recipes.
-- Paginated recipe lists.
+- Browse and filter the recipe catalog by category, area, ingredient, and owner.
+- Retrieve recipe details, including instructions and ingredients.
+- Retrieve popular recipes.
+- Retrieve the authenticated user's own recipes.
+- Create, update, and delete recipes.
+- Upload recipe photos and manage stored images through Cloudinary.
+- Add recipes to and remove recipes from favorites.
+- Retrieve paginated favorite recipes.
+- Return `isFavorite` for recipe cards when appropriate.
+- Stable pagination and deterministic ordering.
 
-### Reference Data
+### Reference data
 
-- Retrieve recipe categories.
-- Retrieve areas of origin.
-- Retrieve available ingredients.
-- Retrieve user testimonials.
+- Recipe categories.
+- Areas/cuisines.
+- Ingredients.
+- User testimonials.
 
-## Tech Stack
+## Tech stack
 
-- **Node.js** — JavaScript runtime.
-- **Express 5** — web application framework.
-- **TypeScript** — static typing.
-- **PostgreSQL** — relational database.
-- **Prisma ORM** — database access and schema management.
-- **JWT** — authentication.
-- **Cloudinary** — image storage and management.
-- **Swagger / OpenAPI 3.0** — API documentation.
-- **Render** — backend deployment.
-- **Neon** — hosted PostgreSQL database.
+- **Node.js** and **Express 5**
+- **TypeScript**
+- **PostgreSQL**
+- **Prisma ORM** (7.x) with the PostgreSQL driver adapter
+- **JWT** and **bcrypt**
+- **Cloudinary** for image storage
+- **Zod** for request validation
+- **Swagger UI / OpenAPI 3** for API documentation
+- **Neon** for hosted PostgreSQL and **Render** for deployment
 
-## API Documentation
+## API documentation
 
-Interactive API documentation is available through Swagger UI:
+When the server is running:
 
-- **Swagger UI:** `/docs`
-- **OpenAPI specification:** `/docs/openapi.json`
+- Swagger UI: `http://localhost:<PORT>/docs`
+- OpenAPI JSON: `http://localhost:<PORT>/docs/openapi.json`
 
-When running locally, open:
+The OpenAPI specification is stored in [`docs/openapi.json`](docs/openapi.json). Additional API notes are available in [`docs/api.md`](docs/api.md).
 
-```text
-http://localhost:<PORT>/docs
-```
+## API overview
 
-The API documentation describes available endpoints, request parameters, authentication requirements, request bodies, and response formats.
+All routes are mounted at the root path.
 
-## Getting Started
+| Method   | Endpoint                | Access                        | Description                                       |
+| -------- | ----------------------- | ----------------------------- | ------------------------------------------------- |
+| `GET`    | `/health`               | Public                        | Health check                                      |
+| `POST`   | `/auth/register`        | Public                        | Register a user                                   |
+| `POST`   | `/auth/login`           | Public                        | Log in                                            |
+| `POST`   | `/auth/refresh`         | Refresh cookie                | Rotate refresh token and issue a new access token |
+| `POST`   | `/auth/logout`          | Access token                  | Revoke the current refresh session                |
+| `GET`    | `/users/current`        | Access token                  | Get the current user's profile and counts         |
+| `GET`    | `/users/:id`            | Access token                  | Get another user's profile and follow status      |
+| `PATCH`  | `/users/current/avatar` | Access token                  | Update the current user's avatar                  |
+| `GET`    | `/users/:id/followers`  | Access token                  | Get a user's paginated followers                  |
+| `GET`    | `/users/following`      | Access token                  | Get the current user's paginated following list   |
+| `PUT`    | `/users/:id/follow`     | Access token                  | Follow a user                                     |
+| `DELETE` | `/users/:id/follow`     | Access token                  | Unfollow a user                                   |
+| `GET`    | `/recipes`              | Public; optional access token | Browse and filter recipes                         |
+| `GET`    | `/recipes/popular`      | Public; optional access token | Get up to four popular recipes                    |
+| `GET`    | `/recipes/:id`          | Public; optional access token | Get recipe details                                |
+| `POST`   | `/recipes`              | Access token                  | Create a recipe                                   |
+| `GET`    | `/recipes/own`          | Access token                  | Get the current user's recipes                    |
+| `PATCH`  | `/recipes/:id`          | Access token                  | Update a recipe owned by the current user         |
+| `DELETE` | `/recipes/:id`          | Access token                  | Delete a recipe owned by the current user         |
+| `GET`    | `/recipes/favorites`    | Access token                  | Get the current user's paginated favorites        |
+| `PUT`    | `/recipes/:id/favorite` | Access token                  | Add a recipe to favorites                         |
+| `DELETE` | `/recipes/:id/favorite` | Access token                  | Remove a recipe from favorites                    |
+| `GET`    | `/categories`           | Public                        | List recipe categories                            |
+| `GET`    | `/areas`                | Public                        | List cuisine areas                                |
+| `GET`    | `/ingredients`          | Public                        | List ingredients                                  |
+| `GET`    | `/testimonials`         | Public                        | List testimonials                                 |
 
-### Prerequisites
-
-Make sure you have the following installed:
-
-- Node.js
-- npm
-- PostgreSQL
-- Git
-
-### Installation
-
-Clone the repository:
-
-```bash
-git clone <repository-url>
-```
-
-Navigate to the project directory:
-
-```bash
-cd foodies-backend
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-### Environment Variables
-
-Create a `.env` file in the project root and configure the environment variables required by the application.
-
-Database configuration:
-
-```env
-DATABASE_URL=
-DIRECT_URL=
-```
-
-### Environment Variables
-
-Create a `.env` file in the project root and configure according to the environment variables listed in `.env.example`:
-
-| Variable                | Description                                                                                                                       |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `ALLOWED_ORIGINS`       | Comma-separated list of frontend origins allowed to access the API.                                                               |
-| `PORT`                  | Port used by the application server.                                                                                              |
-| `DATABASE_URL`          | PostgreSQL connection URL used by the application.                                                                                |
-| `DIRECT_URL`            | Direct PostgreSQL connection URL used for database migrations.                                                                    |
-| `TEST_DATABASE_URL`     | Connection URL for the local PostgreSQL instance used by automated tests. The test user must have permission to create databases. |
-| `JWT_SECRET`            | Secret key used to sign and verify JWT tokens.                                                                                    |
-| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name.                                                                                                            |
-| `CLOUDINARY_API_KEY`    | Cloudinary API key.                                                                                                               |
-| `CLOUDINARY_API_SECRET` | Cloudinary API secret.                                                                                                            |
-
-**Notes:**
-
-- `ALLOWED_ORIGINS` should contain the exact frontend origins, separated by commas, without quotes.
-- `DATABASE_URL` and `DIRECT_URL` must point to the appropriate PostgreSQL database connections.
-- `TEST_DATABASE_URL` must point to a dedicated local PostgreSQL instance for automated testing. It must not point to the production database.
-
-### Database Setup
-
-Make sure your PostgreSQL database is available and the database connection variables are configured.
-
-Apply Prisma migrations:
-
-```bash
-npx prisma migrate dev
-```
-
-Generate the Prisma Client:
-
-```bash
-npx prisma generate
-```
-
-### Run Locally
-
-Build the application:
-
-```bash
-npm run build
-```
-
-Start the server:
-
-```bash
-npm start
-```
-
-Once the server is running, Swagger UI is available at:
-
-```text
-http://localhost:<PORT>/docs
-```
-
-## Testing
-
-The project includes automated tests for type checking and API functionality.
-
-### Available Test Commands
-
-Run TypeScript type checking:
-
-```bash
-npm run typecheck
-```
-
-Run the test suite:
-
-```bash
-npm test
-```
-
-### Test Database Configuration
-
-Set the `TEST_DATABASE_URL` environment variable to connect to a local PostgreSQL instance.
-
-The PostgreSQL test user must have permission to create databases.
-
-Each test run:
-
-1. Creates a separate database with a randomly generated name.
-2. Applies Prisma migrations to the newly created database.
-3. Runs the tests against that database.
-4. Drops only the temporary test database after the test run finishes.
-
-The main database configured through `DATABASE_URL` is not used by the test suite.
-
-**Important:** Use a dedicated local PostgreSQL instance and a test user with database creation privileges. Never configure `TEST_DATABASE_URL` to point to a production database.
-
-### Test Coverage
-
-The tests cover recipe creation through the HTTP API, including:
-
-- HTTP request handling.
-- User authentication and authorization.
-- PostgreSQL database operations.
-- Recipe creation and related data persistence.
-- Image upload error handling.
-- Image cleanup behavior.
-
-Cloudinary calls are mocked during testing. This includes simulated responses for upload failures and image cleanup failures, so tests do not require actual Cloudinary operations.
-
-## Available Scripts
-
-| Command             | Description                                      |
-| ------------------- | ------------------------------------------------ |
-| `npm run build`     | Generates Prisma Client and compiles TypeScript. |
-| `npm start`         | Starts the compiled application.                 |
-| `npm run typecheck` | Runs TypeScript type checking.                   |
-| `npm test`          | Runs the automated test suite.                   |
+All user and recipe IDs are 24-character hexadecimal strings. Consult Swagger for exact request schemas, validation rules, and response examples.
 
 ## Authentication
 
-The API uses JWT-based authentication.
-
-- **Access token** is used to authorize protected API requests. It is sent in the `Authorization` header using the Bearer scheme.
-- **Refresh token** is stored in an HTTP-only cookie and is used to obtain a new access token.
-- Refresh tokens are rotated when a session is successfully refreshed.
-
-Example authorization header:
+Protected endpoints require an access token in the request header:
 
 ```http
 Authorization: Bearer <access_token>
 ```
 
-Some endpoints are public, while others require a valid access token. The authentication requirements are described for each endpoint in Swagger UI.
+The access token is returned in the JSON response after registration or login. Refresh tokens are stored in an HTTP-only `refreshToken` cookie and are not intended to be read by frontend JavaScript.
+
+To refresh a session, send a credentialed request to `POST /auth/refresh`; the browser must include the refresh cookie. A successful refresh rotates the refresh token and returns a new access token. The logout endpoint revokes the refresh session and clears the cookie.
+
+For browser clients using cookies, configure Axios or fetch to send credentials and configure `ALLOWED_ORIGINS` with the exact frontend origins.
+
+## Pagination and filtering
+
+Paginated endpoints use `page` and `limit` query parameters. Recipe lists default to `page=1` and `limit=9`; the maximum recipe page size is 100.
+
+A paginated response has this shape:
+
+```json
+{
+  "data": [],
+  "pagination": {
+    "page": 1,
+    "limit": 9,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+```
+
+Recipe catalog filters can be combined:
+
+- `category` — category name from `/categories`.
+- `area` — area name from `/areas`.
+- `ingredientId` — ingredient ID from `/ingredients`.
+- `ownerId` — recipe owner's user ID.
+- `page` and `limit` — pagination.
+
+Recipe results are ordered by `createdAt DESC`, then `id DESC`. Unknown or repeated query parameters are rejected where the endpoint uses strict query validation. See Swagger and [`docs/api.md`](docs/api.md) for endpoint-specific details.
+
+## Image uploads
+
+Recipe creation and avatar updates use `multipart/form-data`. Recipe creation requires a photo; recipe updates can omit a new photo to keep the existing one. Supported image formats and size limits are validated by the API. Images are stored in Cloudinary.
+
+When sending `FormData` from a browser, do not manually set the `Content-Type` header; the browser must add the multipart boundary.
+
+## Getting started
+
+### Requirements
+
+- Node.js (the project is configured for Node.js 24)
+- npm
+- PostgreSQL
+- Cloudinary credentials for image-upload functionality
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/Your-Natka/foodies-backend.git
+cd foodies-backend
+npm install
+```
+
+### 2. Configure environment variables
+
+Create a `.env` file in the project root. Use `.env.example` as the template:
+
+```env
+ALLOWED_ORIGINS=http://localhost:5173
+PORT=3000
+
+DATABASE_URL=
+DIRECT_URL=
+
+TEST_DATABASE_URL=
+
+JWT_SECRET=
+
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+
+| Variable                | Purpose                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `ALLOWED_ORIGINS`       | Comma-separated, exact frontend origins allowed by CORS                           |
+| `PORT`                  | HTTP server port; defaults to `3000` if omitted                                   |
+| `DATABASE_URL`          | PostgreSQL connection string used by the application                              |
+| `DIRECT_URL`            | Direct PostgreSQL connection string used by Prisma CLI operations when configured |
+| `TEST_DATABASE_URL`     | Dedicated PostgreSQL connection used by automated tests                           |
+| `JWT_SECRET`            | Secret used to sign and verify JWT access tokens                                  |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name                                                             |
+| `CLOUDINARY_API_KEY`    | Cloudinary API key                                                                |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret                                                             |
+
+Keep secrets out of source control. `TEST_DATABASE_URL` must point to a dedicated test database/server, never production. The automated test setup may create and drop temporary databases, so its PostgreSQL user needs permission to create databases.
+
+### 3. Apply database migrations
+
+Make sure PostgreSQL is running and `DATABASE_URL` / `DIRECT_URL` are configured.
+
+```bash
+npx prisma migrate dev
+```
+
+### 4. Generate Prisma Client
+
+```bash
+npx prisma generate
+```
+
+### 5. (Optional) Seed reference and sample data
+
+```bash
+npm run seed
+```
+
+### 6. Start the development server
+
+```bash
+npm run dev
+```
+
+The API runs at `http://localhost:<PORT>` (default `3000`). Open `http://localhost:3000/docs` to use Swagger UI when using the default port.
+
+## Available scripts
+
+| Command             | Description                                          |
+| ------------------- | ---------------------------------------------------- |
+| `npm run dev`       | Run the TypeScript server in watch mode using `tsx`  |
+| `npm run build`     | Generate Prisma Client and compile TypeScript        |
+| `npm start`         | Start the compiled server from `dist/src/server.js`  |
+| `npm run typecheck` | Run TypeScript type checking without emitting files  |
+| `npm test`          | Run the Node.js test runner against `test/*.test.ts` |
+| `npm run seed`      | Seed the database using `prisma/seed.ts`             |
+
+## Tests
+
+Run the automated test suite with:
+
+```bash
+npm test
+```
+
+Type-check the project with:
+
+```bash
+npm run typecheck
+```
+
+The tests use `TEST_DATABASE_URL`, a separate PostgreSQL test connection. The test setup is designed to create a temporary database, apply migrations, run tests, and remove the temporary database. Ensure the configured test database user has the required database-creation privileges. Cloudinary behavior is mocked in tests where applicable; tests should not require production image operations.
 
 ## Deployment
 
-The backend is deployed on **Render** and uses a PostgreSQL database hosted on **Neon**.
+The repository is configured for deployment with Render and a PostgreSQL database hosted on Neon.
 
-Production environment variables must be configured in the hosting provider's environment settings.
+Configure the production environment variables in the hosting platform:
 
-The application uses the `PORT` environment variable provided by the hosting platform.
+- `DATABASE_URL`
+- `DIRECT_URL` (for migration commands)
+- `JWT_SECRET`
+- `ALLOWED_ORIGINS`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `PORT` (normally supplied by the hosting platform)
 
-## Project Structure
+Apply committed Prisma migrations with:
 
-The project is organized around application source code, database configuration, and API documentation.
-
-```text
-foodies-backend/
-├── prisma/              # Prisma schema and database migrations
-├── src/                 # Application source code
-├── dist/                # Compiled application output
-├── openapi.json         # OpenAPI specification
-├── package.json
-├── tsconfig.json
-└── README.md
+```bash
+npx prisma migrate deploy
 ```
+
+Build and start commands are:
+
+```bash
+npm run build
+npm start
+```
+
+Run migrations as a deployment/pre-deploy step before starting the application. Do not run development migration or database-reset commands against production.
 
 ## License
 
