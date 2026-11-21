@@ -11,6 +11,7 @@ import pg from "pg";
 import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import SwaggerParser from "@apidevtools/swagger-parser";
+import { uploadLimiter } from "../src/middlewares/rateLimitMiddleware.ts";
 
 if (!process.env.TEST_DATABASE_URL)
   throw new Error("Set TEST_DATABASE_URL to run PostgreSQL integration tests");
@@ -19,6 +20,7 @@ const databaseUrl = new URL(process.env.TEST_DATABASE_URL);
 const admin = new pg.Client({ connectionString: databaseUrl.href });
 databaseUrl.pathname = `/${databaseName}`;
 process.env.DATABASE_URL = databaseUrl.href;
+process.env.TEST_DATABASE_URL = databaseUrl.href;
 process.env.JWT_SECRET = randomUUID();
 
 let databaseCreated = false;
@@ -161,6 +163,7 @@ before(
 );
 
 beforeEach(async () => {
+  await uploadLimiter.resetKey("127.0.0.1");
   await prisma.recipe.deleteMany();
   uploads.length = 0;
   deletions.length = 0;
@@ -215,7 +218,8 @@ const remove = (id: string, token = accessToken) =>
   });
 
 test("вхід, створення, свої рецепти та видалення працюють разом", async () => {
-  const response = await create();
+  const instructions = "a".repeat(1000);
+  const response = await create(form({ time: "1", instructions }));
   assert.equal(response.status, 201);
   const { data } = (await response.json()) as {
     data: {
@@ -237,6 +241,8 @@ test("вхід, створення, свої рецепти та видален�
   const stored = await prisma.recipe.findUniqueOrThrow({
     where: { id: data.id },
   });
+  assert.equal(stored.time, 1);
+  assert.equal(stored.instructions, instructions);
   assert.equal(stored.photoPublicId, uploads[0].publicId);
   const details = await fetch(`${baseUrl}/recipes/${data.id}`);
   assert.deepEqual(await details.json(), { data });
@@ -437,6 +443,37 @@ test("фото обов'язкове, має правильний формат, 
   });
   assert.equal(malformed.status, 400);
   assert.equal(uploads.length, 0);
+});
+
+test("ліміт завантаження повертає 429 після десяти запитів", async () => {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    assert.equal((await create(form({}, null))).status, 400);
+  }
+
+  assert.equal((await create()).status, 429);
+  assert.equal(uploads.length, 0);
+});
+
+test("редагування приймає інструкцію до 1000 символів", async () => {
+  const created = await create();
+  assert.equal(created.status, 201);
+  const { data: { id } } = (await created.json()) as { data: { id: string } };
+  const updateInstructions = (instructions: string) =>
+    fetch(`${baseUrl}/recipes/${id}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ instructions }),
+    });
+
+  const instructions = "a".repeat(1000);
+  assert.equal((await updateInstructions(instructions)).status, 200);
+  const invalid = await updateInstructions(instructions + "a");
+  assert.equal(invalid.status, 400);
+  const stored = await prisma.recipe.findUniqueOrThrow({ where: { id } });
+  assert.equal(stored.instructions, instructions);
 });
 
 test("помилка Cloudinary не створює рецепт", async () => {

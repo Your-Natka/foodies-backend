@@ -2,9 +2,13 @@ import "dotenv/config";
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { after, before, test } from "node:test";
+import { after, before, beforeEach, test } from "node:test";
 import request from "supertest";
 import type { Response } from "supertest";
+import {
+  loginLimiter,
+  registerLimiter,
+} from "../src/middlewares/rateLimitMiddleware.ts";
 
 // set test environment before importing app and Prisma
 process.env.NODE_ENV = "test";
@@ -58,6 +62,11 @@ before(async () => {
     "foodies_test",
     "Tests must run against the foodies_test database",
   );
+});
+
+beforeEach(async () => {
+  await registerLimiter.resetKey("127.0.0.1");
+  await loginLimiter.resetKey("127.0.0.1");
 });
 
 after(async () => {
