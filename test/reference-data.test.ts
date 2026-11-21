@@ -17,6 +17,7 @@ const databaseUrl = new URL(process.env.TEST_DATABASE_URL);
 const admin = new pg.Client({ connectionString: databaseUrl.href });
 databaseUrl.pathname = `/${databaseName}`;
 process.env.DATABASE_URL = databaseUrl.href;
+process.env.TEST_DATABASE_URL = databaseUrl.href;
 
 let databaseCreated = false;
 let prisma: typeof import("../prisma/client.ts").default;
