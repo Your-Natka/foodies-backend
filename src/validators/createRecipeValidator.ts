@@ -39,7 +39,7 @@ export const createRecipeSchema = z
       .regex(/^[1-9]\d*$/, "Time must be a positive whole number")
       .transform(Number)
       .pipe(z.number().int().min(1).max(2147483647)),
-    instructions: z.string().trim().min(1),
+    instructions: z.string().trim().min(1).max(1000),
     ingredients: z
       .string()
       .transform((value, context) => {

@@ -99,7 +99,6 @@ test("GET /users/current should return current user's profile", async () => {
     favoritesCount: 0,
     followersCount: 0,
     followingCount: 0,
-    recipes: [],
   });
 });
 
@@ -111,7 +110,7 @@ test("GET /users/current should return 401 without access token", async () => {
 
 // GET USER BY ID
 
-test("GET /users/:id should return another user's public profile", async () => {
+test("GET /users/:id should return another user's profile", async () => {
   const response = await request(app)
     .get(`${USERS_PATH}/${anotherUser.id}`)
     .set(getAuthHeader(currentUser.id));
@@ -126,7 +125,6 @@ test("GET /users/:id should return another user's public profile", async () => {
     recipesCount: 0,
     followersCount: 0,
     isFollowing: false,
-    recipes: [],
   });
 
   assert.equal(response.headers["cache-control"], "private, no-store");
