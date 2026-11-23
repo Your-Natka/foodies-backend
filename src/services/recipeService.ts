@@ -152,19 +152,16 @@ export const getRecipes = async (
   if (ownerId !== undefined) where.ownerId = ownerId;
   if (ingredientId) where.ingredients = { some: { ingredientId } };
 
-  const [data, total] = await prisma.$transaction(
-    [
-      prisma.recipe.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        select: { ...recipeCardSelect, favorites: favoriteSelect(viewerId) },
-      }),
-      prisma.recipe.count({ where }),
-    ],
-    { isolationLevel: "RepeatableRead" },
-  );
+  const [data, total] = await Promise.all([
+    prisma.recipe.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { ...recipeCardSelect, favorites: favoriteSelect(viewerId) },
+    }),
+    prisma.recipe.count({ where }),
+  ]);
 
   return {
     data: data.map(withFavorite),
